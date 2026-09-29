@@ -28,5 +28,49 @@
     "description": "",
     "latitude": 40.792109,
     "longitude": 140.674211
+  },
+  {
+    "id": 8,
+    "name": "ゲートタワー",
+    "category": "指定避難所",
+    "district": "名古屋",
+    "address": "名古屋駅",
+    "capacity": null,
+    "phone": "",
+    "hours": "",
+    "features": [],
+    "description": "",
+    "latitude": 35.179546,
+    "longitude": 136.880977
+  },
+  {
+    "id": 9,
+    "name": "千種",
+    "category": "福祉避難所",
+    "district": "千種",
+    "address": "千種",
+    "capacity": null,
+    "phone": "",
+    "hours": "",
+    "features": [],
+    "description": "",
+    "latitude": 35.16972,
+    "longitude": 136.931458
+  },
+  {
+    "id": 10,
+    "name": "橋",
+    "category": "指定避難所",
+    "district": "青森",
+    "address": "青森中央大橋",
+    "capacity": null,
+    "phone": "",
+    "hours": "",
+    "features": [
+      "barrier_free"
+    ],
+    "description": "",
+    "latitude": 40.815913,
+    "longitude": 140.74293
   }
 ]

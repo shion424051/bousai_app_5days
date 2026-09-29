@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}危険箇所を投稿 | 防災アプリ{% endblock %}
+{% block body_class %}hazard-report-body{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+    .hazard-report-body {
+        --ink: #263746;
+        --muted: #647381;
+        --line: #dce3e8;
+        --paper: #fff;
+        --canvas: #f7f8f9;
+        --navy: #2854a4;
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    .hazard-report-body *, .hazard-report-body *::before, .hazard-report-body *::after { box-sizing: border-box; }
+    .hazard-report-body .site-header {
+        display: flex; align-items: center; gap: 24px; min-height: 82px;
+        padding: 14px max(28px, calc((100vw - 1320px) / 2)); background: var(--navy); color: #fff;
+    }
+    .hazard-report-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+    .hazard-report-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+    .hazard-report-body .brand-name { display: grid; gap: 2px; }
+    .hazard-report-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+    .hazard-report-body .brand-name small { color: #d0dcee; font-size: 9px; }
+    .hazard-report-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 6px; }
+    .hazard-report-body .site-nav a, .hazard-report-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 13px; }
+    .hazard-report-body .site-nav a { padding: 10px 12px; border-bottom: 2px solid transparent; }
+    .hazard-report-body .site-nav a[href="/shelter_register"], .hazard-report-body .site-nav a[href="/hazard_report"] { border-color: #acd2de; color: #fff; }
+    .hazard-report-body .site-nav a:hover, .hazard-report-body .account-nav a:hover { color: #acd2de; }
+    .hazard-report-body .account-nav { display: flex; align-items: center; gap: 12px; margin-left: auto; color: #d0dcee; font-size: 11px; }
+    .hazard-report-body > main { width: min(1160px, 100%); margin: 0 auto; padding: 36px 28px 56px; }
+    .report-intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+    .report-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+    .report-intro h1 { margin: 0; font-size: 27px; line-height: 1.35; }
+    .required-note { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+    .form-notice { margin: 0 0 18px; padding: 12px 15px; border: 1px solid #c5dcc8; background: #edf5ed; color: #315e39; font-size: 13px; }
+    .form-notice.is-error { border-color: #efc9be; background: #fbefeb; color: #a83c30; }
+    .report-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(340px, .9fr); gap: 18px; align-items: start; }
+    .report-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+    .report-panel-heading { min-height: 68px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .report-panel-heading h2 { margin: 0; font-size: 16px; }
+    .report-panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    #registrationMap { width: 100%; height: 430px; background: #e5ece4; cursor: crosshair; }
+    .coordinates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px 18px 18px; }
+    .form-fields { display: grid; gap: 15px; padding: 18px; }
+    .form-field { display: grid; gap: 7px; min-width: 0; }
+    .form-field label, .coordinates label { color: var(--ink); font-size: 12px; font-weight: 700; }
+    .form-field input, .form-field select, .form-field textarea, .coordinates input {
+        width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #cbd6de;
+        border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 13px;
+    }
+    .form-field textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+    .form-field input:focus-visible, .form-field select:focus-visible, .form-field textarea:focus-visible, .coordinates input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
+    .field-hint, #attachmentStatus { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .attachment-drop { display: grid; gap: 10px; padding: 14px; border: 1px dashed #aebdc9; background: #f7f8f9; }
+    .attachment-drop.is-dragging { border-color: #2854a4; background: #edf4fc; }
+    .attachment-drop input { min-height: 0; padding: 0; border: 0; background: transparent; }
+    .attachment-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+    .attachment-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; padding: 7px 9px; border: 1px solid var(--line); font-size: 11px; }
+    .attachment-list span { overflow-wrap: anywhere; }
+    .remove-attachment { width: 30px; height: 30px; flex: 0 0 auto; border: 0; background: transparent; color: #a83c30; cursor: pointer; font-size: 18px; }
+    .submit-button { min-height: 46px; padding: 11px 16px; border: 0; border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; }
+    .submit-button:hover { background: #1f4389; }
+    @media (max-width: 940px) {
+        .hazard-report-body .site-header { flex-wrap: wrap; gap: 10px 18px; padding: 14px 20px; }
+        .hazard-report-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+        .report-grid { grid-template-columns: 1fr; }
+        #registrationMap { height: 380px; }
+    }
+    @media (max-width: 560px) {
+        .hazard-report-body .site-header { padding: 12px 14px 8px; }
+        .hazard-report-body .site-nav { gap: 0; }
+        .hazard-report-body .site-nav a { padding: 9px 10px; white-space: nowrap; font-size: 12px; }
+        .hazard-report-body > main { padding: 27px 14px 40px; }
+        .report-intro { align-items: flex-start; flex-direction: column; gap: 8px; margin-bottom: 17px; }
+        .report-intro h1 { font-size: 23px; }
+        .report-panel-heading { padding: 12px 14px; }
+        #registrationMap { height: 330px; }
+        .coordinates { gap: 8px; padding: 12px 14px 14px; }
+        .form-fields { gap: 14px; padding: 14px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-intro">
+    <div><p class="eyebrow">HAZARD REPORT</p><h1>危険箇所を投稿</h1></div>
+    <p class="required-note">* 必須　住所・状況・添付は任意</p>
+</div>
+{% if success %}<p class="form-notice" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="form-notice is-error" role="alert">{{ message }}</p>{% endif %}
+<div id="clientNotice" class="form-notice is-error" role="alert" hidden></div>
+<form id="hazardReportForm" action="/hazard_report" method="post" enctype="multipart/form-data">
+    <div class="report-grid">
+        <section class="report-panel" aria-labelledby="location-title">
+            <div class="report-panel-heading">
+                <h2 id="location-title">発生場所 *</h2>
+                <p id="locationStatus" aria-live="polite">地図をクリックするか、マーカーを動かしてください</p>
+            </div>
+            <div id="registrationMap" role="region" aria-label="危険箇所の位置を指定する地図"></div>
+            <div class="coordinates">
+                <label for="latitude">緯度 *<input type="number" id="latitude" name="latitude" min="-90" max="90" step="any" value="{{ form_data.get('latitude', '') }}" required></label>
+                <label for="longitude">経度 *<input type="number" id="longitude" name="longitude" min="-180" max="180" step="any" value="{{ form_data.get('longitude', '') }}" required></label>
+            </div>
+        </section>
+        <section class="report-panel" aria-labelledby="details-title">
+            <div class="report-panel-heading"><h2 id="details-title">投稿内容</h2><p>手入力した名称・住所は位置検索結果で上書きされません</p></div>
+            <div class="form-fields">
+                <div class="form-field">
+                    <label for="name">場所の名称 *</label>
+                    <input type="text" id="name" name="name" value="{{ form_data.get('name', '') }}" maxlength="100" autocomplete="off" required>
+                </div>
+                <div class="form-field">
+                    <label for="address">住所・名所（任意）</label>
+                    <input type="text" id="address" name="address" value="{{ form_data.get('address', '') }}" maxlength="300" autocomplete="street-address">
+                </div>
+                <div class="form-field">
+                    <label for="type">危険の種類 *</label>
+                    <select id="type" name="type" required>
+                        <option value="">選択してください</option>
+                        {% for value in danger_types %}
+                        <option value="{{ value }}" {% if form_data.get('type') == value %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="description">状況の説明（任意）</label>
+                    <textarea id="description" name="description" maxlength="2000" rows="4">{{ form_data.get('description', '') }}</textarea>
+                </div>
+                <div class="form-field">
+                    <label for="attachments">画像・動画（任意、最大5件）</label>
+                    <div class="attachment-drop" id="attachmentDrop">
+                        <p class="field-hint">JPG・JPEG・PNG・GIF・WebP・MP4・WebM・MOV・M4V、各20MB以下</p>
+                        <input type="file" id="attachments" name="attachments" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,video/x-m4v" multiple>
+                        <p id="attachmentStatus" aria-live="polite">ファイル選択、ドラッグ＆ドロップ、画像貼り付けに対応</p>
+                        <ul id="attachmentList" class="attachment-list" aria-label="選択済みファイル"></ul>
+                    </div>
+                </div>
+                <button class="submit-button" type="submit">危険箇所を投稿</button>
+            </div>
+        </section>
+    </div>
+</form>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const map = L.map('registrationMap').setView([40.8246, 140.7400], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        referrerPolicy: 'strict-origin-when-cross-origin'
+    }).addTo(map);
+
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const locationStatus = document.getElementById('locationStatus');
+    const nameInput = document.getElementById('name');
+    const addressInput = document.getElementById('address');
+    const clientNotice = document.getElementById('clientNotice');
+    let marker = null;
+    let nameEdited = Boolean(nameInput.value);
+    let addressEdited = Boolean(addressInput.value);
+    let geocodeRequest = 0;
+
+    nameInput.addEventListener('input', () => { nameEdited = true; });
+    addressInput.addEventListener('input', () => { addressEdited = true; });
+
+    async function suggestAddress(latitude, longitude) {
+        const requestId = ++geocodeRequest;
+        try {
+            const response = await fetch('/api/hazard_reports/reverse-geocode', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude, longitude })
+            });
+            if (!response.ok || requestId !== geocodeRequest) return;
+            const result = await response.json();
+            if (!nameEdited && result.name) nameInput.value = result.facility_name || result.name;
+            if (!addressEdited && result.address) addressInput.value = result.address;
+        } catch (_) {
+            // Location entry remains available when the external search is offline.
+        }
+    }
+
+    function setPosition(latitude, longitude, searchAddress = true) {
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+            || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
+        latitudeInput.value = latitude.toFixed(6);
+        longitudeInput.value = longitude.toFixed(6);
+        locationStatus.textContent = `${latitudeInput.value}, ${longitudeInput.value}`;
+        if (marker) marker.setLatLng([latitude, longitude]);
+        else {
+            marker = L.marker([latitude, longitude], { draggable: true }).addTo(map);
+            marker.on('dragend', event => {
+                const position = event.target.getLatLng();
+                setPosition(position.lat, position.lng);
+            });
+        }
+        if (searchAddress) suggestAddress(latitude, longitude);
+    }
+
+    map.on('click', event => setPosition(event.latlng.lat, event.latlng.lng));
+    [latitudeInput, longitudeInput].forEach(input => input.addEventListener('change', () => {
+        const latitude = Number(latitudeInput.value);
+        const longitude = Number(longitudeInput.value);
+        if (latitudeInput.value && longitudeInput.value) setPosition(latitude, longitude);
+    }));
+    if (latitudeInput.value && longitudeInput.value) {
+        setPosition(Number(latitudeInput.value), Number(longitudeInput.value), false);
+        map.setView([Number(latitudeInput.value), Number(longitudeInput.value)], 15);
+    }
+
+    const fileInput = document.getElementById('attachments');
+    const dropArea = document.getElementById('attachmentDrop');
+    const fileList = document.getElementById('attachmentList');
+    const attachmentStatus = document.getElementById('attachmentStatus');
+    const allowedExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.mov', '.m4v']);
+    let selectedFiles = [];
+
+    function syncFiles() {
+        const transfer = new DataTransfer();
+        selectedFiles.forEach(file => transfer.items.add(file));
+        fileInput.files = transfer.files;
+        fileList.replaceChildren();
+        selectedFiles.forEach((file, index) => {
+            const item = document.createElement('li');
+            const label = document.createElement('span');
+            label.textContent = `${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+            const remove = document.createElement('button');
+            remove.type = 'button'; remove.className = 'remove-attachment';
+            remove.textContent = '×'; remove.title = `${file.name}を削除`;
+            remove.setAttribute('aria-label', `${file.name}を削除`);
+            remove.addEventListener('click', () => {
+                selectedFiles.splice(index, 1);
+                syncFiles();
+            });
+            item.append(label, remove);
+            fileList.appendChild(item);
+        });
+        attachmentStatus.textContent = `${selectedFiles.length}/5件を選択中`;
+    }
+
+    function addFiles(files) {
+        const errors = [];
+        for (const file of files) {
+            const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            if (!allowedExtensions.has(extension)) errors.push(`${file.name}: 対応していない形式です`);
+            else if (file.size > 20 * 1024 * 1024) errors.push(`${file.name}: 20MBを超えています`);
+            else if (selectedFiles.length >= 5) errors.push('添付は5件までです');
+            else if (!selectedFiles.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) selectedFiles.push(file);
+        }
+        syncFiles();
+        if (errors.length) attachmentStatus.textContent = errors.join(' / ');
+    }
+
+    fileInput.addEventListener('change', () => {
+        addFiles(Array.from(fileInput.files));
+    });
+    ['dragenter', 'dragover'].forEach(name => dropArea.addEventListener(name, event => {
+        event.preventDefault(); dropArea.classList.add('is-dragging');
+    }));
+    ['dragleave', 'drop'].forEach(name => dropArea.addEventListener(name, event => {
+        event.preventDefault(); dropArea.classList.remove('is-dragging');
+    }));
+    dropArea.addEventListener('drop', event => addFiles(Array.from(event.dataTransfer.files)));
+    document.addEventListener('paste', event => {
+        const images = Array.from(event.clipboardData.items)
+            .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+            .map(item => item.getAsFile()).filter(Boolean);
+        if (images.length) addFiles(images);
+    });
+
+    document.getElementById('hazardReportForm').addEventListener('submit', event => {
+        const latitude = Number(latitudeInput.value);
+        const longitude = Number(longitudeInput.value);
+        if (!latitudeInput.value || !longitudeInput.value
+            || !Number.isFinite(latitude) || !Number.isFinite(longitude)
+            || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            event.preventDefault();
+            clientNotice.hidden = false;
+            clientNotice.textContent = '地図をクリックするかマーカーを動かして、位置を指定してください。';
+            document.getElementById('registrationMap').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+});
+</script>
+{% endblock %}

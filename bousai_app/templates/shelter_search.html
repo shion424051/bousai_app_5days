@@ -62,9 +62,11 @@
 	.shelter-results { max-height: 465px; overflow-y: auto; }
 	.result-list { margin: 0; padding: 0 16px; list-style: none; }
 	.result-item { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid #e9edf0; }
+	.result-item:hover, .result-item:focus-within { background: #f0f5fa; }
 	.result-item:last-child { border-bottom: 0; }
 	.result-topline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 	.result-name { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+	.result-address { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 	.result-distance { flex: 0 0 auto; color: #365f9d; font-size: 12px; font-weight: 700; }
 	.result-actions { display: flex; justify-content: flex-end; }
 	.results-empty { margin: 0; padding: 18px 16px; color: var(--muted); font-size: 12px; line-height: 1.65; }
@@ -75,7 +77,7 @@
 	.route-step:last-child { border-bottom: 0; }
 	.route-step-number { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #eaf0fa; color: var(--navy); font-size: 11px; font-weight: 700; }
 	.route-step-distance { color: var(--muted); white-space: nowrap; }
-	.route-attribution { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+	.route-attribution { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.6; }
 	.admin-location { margin-top: 16px; }
 	.admin-form { display: grid; grid-template-columns: minmax(200px, .8fr) minmax(0, 1fr) auto; align-items: end; gap: 12px; padding: 15px 16px; }
 	.admin-field { display: grid; gap: 6px; }
@@ -135,6 +137,7 @@
 		</div>
 		<div class="location-actions">
 			<button class="search-button primary" id="currentLocationButton" type="button">◎ 現在地から検索</button>
+			<button class="search-button" id="testLocationButton" type="button">⌖ 青森駅をテスト地点にする</button>
 			<button class="search-button" id="manualLocationButton" type="button">⌖ 地図で現在地を指定</button>
 		</div>
 		<div id="shelterMap" role="region" aria-label="現在地と周辺避難所の地図"></div>
@@ -165,7 +168,7 @@
 	</div>
 	<p id="routeSummary" class="route-summary" role="status"></p>
 	<ol id="routeSteps" class="route-steps"></ol>
-	<p class="route-attribution">徒歩経路: OpenStreetMap contributors / FOSSGISルーター</p>
+	<p class="route-attribution">徒歩経路: OpenStreetMap contributors / FOSSGISルーター。距離と所要時間は参考情報です。災害時の通行状況を反映せず、安全を保証するものではありません。</p>
 </section>
 
 {% if logged_in %}
@@ -203,7 +206,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-	const map = L.map('shelterMap').setView([35.3390, 139.4903], 12);
+	const map = L.map('shelterMap').setView([40.8246, 140.7400], 12);
 	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 		attribution: '© OpenStreetMap contributors',
 		referrerPolicy: 'strict-origin-when-cross-origin'
@@ -218,24 +221,64 @@ document.addEventListener('DOMContentLoaded', function() {
 	let currentPosition = null;
 	let currentMarker = null;
 	let routeLayer = null;
+	let locationRequestId = 0;
+	let routeRequestId = 0;
 	const shelterMarkers = L.layerGroup().addTo(map);
 	let selectingCurrentLocation = false;
 	let selectingShelterLocation = false;
 	let shelterPositionMarker = null;
 
 	function formatDistance(meters) {
-		return meters < 1000 ? `${meters} m` : `${(meters / 1000).toFixed(1)} km`;
+		return meters < 1000 ? `${Math.round(meters / 10) * 10} m` : `${(meters / 1000).toFixed(1)} km`;
 	}
 
-	function setCurrentPosition(latitude, longitude) {
+	function setLocationBusy(isBusy) {
+		document.getElementById('currentLocationButton').disabled = isBusy;
+		document.getElementById('testLocationButton').disabled = isBusy;
+		document.getElementById('manualLocationButton').disabled = isBusy;
+	}
+
+	async function setCurrentPosition(latitude, longitude, placeName, reverseGeocode = false) {
+		const requestId = ++locationRequestId;
 		currentPosition = { latitude, longitude };
 		selectingCurrentLocation = false;
 		document.getElementById('manualLocationButton').textContent = '⌖ 地図で現在地を指定';
 		if (currentMarker) currentMarker.setLatLng([latitude, longitude]);
-		else currentMarker = L.circleMarker([latitude, longitude], { radius: 8, color: '#fff', weight: 3, fillColor: '#2854a4', fillOpacity: 1 }).addTo(map);
-		currentMarker.bindPopup('現在地');
+		else currentMarker = L.circleMarker([latitude, longitude], { radius: 8, color: '#fff', weight: 3, fillColor: '#c84938', fillOpacity: 1 }).addTo(map);
+		currentMarker.bindPopup(placeName);
 		map.setView([latitude, longitude], 14);
-		searchNearbyShelters();
+		if (routeLayer) map.removeLayer(routeLayer);
+		routeLayer = null;
+		routeRequestId++;
+		routePanel.hidden = false;
+		document.getElementById('routeSummary').textContent = '近くの避難所を選ぶと徒歩ルートを表示します。';
+		document.getElementById('routeSteps').replaceChildren();
+		status.textContent = `${placeName}の位置から避難所を検索しています。`;
+		const [town, succeeded] = await Promise.all([
+			reverseGeocode ? getCurrentTown(latitude, longitude) : Promise.resolve(null),
+			searchNearbyShelters()
+		]);
+		if (requestId !== locationRequestId) return;
+		const locationLabel = town || placeName;
+		if (requestId === locationRequestId && succeeded) {
+			status.textContent = `${locationLabel}から近い順に表示しています。`;
+			status.classList.remove('is-error');
+		}
+	}
+
+	async function getCurrentTown(latitude, longitude) {
+		try {
+			const response = await fetch('/api/shelters/reverse-geocode', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ latitude, longitude })
+			});
+			if (!response.ok) return null;
+			const data = await response.json();
+			return typeof data.town === 'string' ? data.town : null;
+		} catch (_) {
+			return null;
+		}
 	}
 
 	function renderShelters(data) {
@@ -270,6 +313,9 @@ document.addEventListener('DOMContentLoaded', function() {
 			distance.className = 'result-distance';
 			distance.textContent = formatDistance(shelter.distance_m);
 			topLine.append(name, distance);
+			const address = document.createElement('p');
+			address.className = 'result-address';
+			address.textContent = shelter.address || '住所未登録';
 			const actions = document.createElement('div');
 			actions.className = 'result-actions';
 			const routeButton = document.createElement('button');
@@ -278,19 +324,13 @@ document.addEventListener('DOMContentLoaded', function() {
 			routeButton.textContent = '徒歩ルート';
 			routeButton.addEventListener('click', () => showRoute(shelter));
 			actions.appendChild(routeButton);
-			item.append(topLine, actions);
+			item.append(topLine, address, actions);
 			results.appendChild(item);
 		});
-
-		if (data.unlocated_count) {
-			const message = `${data.unlocated_count} 件の避難所は地図位置が未登録のため、距離順の対象外です。`;
-			status.textContent = message;
-			status.classList.toggle('is-error', locatedShelters.length === 0);
-		}
 	}
 
 	async function searchNearbyShelters() {
-		if (!currentPosition) return;
+		if (!currentPosition) return false;
 		status.textContent = '近くの避難所を検索しています。';
 		status.classList.remove('is-error');
 		try {
@@ -299,10 +339,11 @@ document.addEventListener('DOMContentLoaded', function() {
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || '避難所を検索できません。');
 			renderShelters(data);
-			if (data.shelters.length) status.textContent = '距離の近い順に表示しています。';
+			return true;
 		} catch (error) {
 			status.textContent = error.message;
 			status.classList.add('is-error');
+			return false;
 		}
 	}
 
@@ -325,9 +366,17 @@ document.addEventListener('DOMContentLoaded', function() {
 	}
 
 	async function showRoute(shelter) {
-		if (!currentPosition) return;
+		const requestId = ++routeRequestId;
+		if (routeLayer) map.removeLayer(routeLayer);
+		routeLayer = null;
 		routePanel.hidden = false;
 		document.getElementById('routeDestination').textContent = shelter.name;
+		if (!currentPosition) {
+			document.getElementById('routeSummary').textContent = '現在地または青森駅を出発地点に選択してください。';
+			document.getElementById('routeSteps').replaceChildren();
+			map.setView([shelter.latitude, shelter.longitude], 15);
+			return;
+		}
 		document.getElementById('routeSummary').textContent = '徒歩ルートを取得しています。';
 		document.getElementById('routeSteps').replaceChildren();
 		routePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -341,10 +390,10 @@ document.addEventListener('DOMContentLoaded', function() {
 			const response = await fetch(`/api/shelters/route?${query}`);
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || '徒歩ルートを取得できません。');
+			if (requestId !== routeRequestId) return;
 
-			if (routeLayer) map.removeLayer(routeLayer);
 			routeLayer = L.geoJSON(data.geometry, { style: { color: '#c84938', weight: 5, opacity: 0.85 } }).addTo(map);
-			map.fitBounds(routeLayer.getBounds().pad(0.15));
+			map.setView([shelter.latitude, shelter.longitude], 15);
 			const minutes = Math.max(1, Math.round(data.duration_s / 60));
 			document.getElementById('routeSummary').textContent = `${formatDistance(data.distance_m)}・徒歩約${minutes}分`;
 
@@ -364,26 +413,38 @@ document.addEventListener('DOMContentLoaded', function() {
 				steps.appendChild(item);
 			});
 		} catch (error) {
-			document.getElementById('routeSummary').textContent = error.message;
+			if (requestId === routeRequestId) document.getElementById('routeSummary').textContent = `${error.message} 避難所の地図表示は維持しています。`;
 		}
 	}
 
 	document.getElementById('currentLocationButton').addEventListener('click', () => {
 		if (!navigator.geolocation) {
-			status.textContent = 'このブラウザーでは位置情報を利用できません。地図から現在地を指定してください。';
+			status.textContent = 'このブラウザーでは位置情報を利用できません。青森駅をテスト地点に選べます。';
 			status.classList.add('is-error');
 			return;
 		}
 		status.textContent = '現在地を取得しています。';
 		status.classList.remove('is-error');
+		setLocationBusy(true);
 		navigator.geolocation.getCurrentPosition(
-			position => setCurrentPosition(position.coords.latitude, position.coords.longitude),
-			() => {
-				status.textContent = '現在地を取得できません。地図から現在地を指定してください。';
+			position => {
+				setLocationBusy(false);
+				setCurrentPosition(position.coords.latitude, position.coords.longitude, '現在地', true);
+			},
+			error => {
+				setLocationBusy(false);
+				const reason = error.code === 1 ? '位置情報の利用が許可されていません。'
+					: error.code === 3 ? '現在地の取得がタイムアウトしました。'
+					: '現在地を取得できませんでした。';
+				status.textContent = `${reason}青森駅をテスト地点に選べます。`;
 				status.classList.add('is-error');
 			},
 			{ enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
 		);
+	});
+
+	document.getElementById('testLocationButton').addEventListener('click', () => {
+		setCurrentPosition(40.8296, 140.7348, '青森駅');
 	});
 
 	document.getElementById('manualLocationButton').addEventListener('click', event => {
@@ -404,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			selectingShelterLocation = false;
 			status.textContent = '避難所位置を選択しました。管理者フォームから保存できます。';
 		} else if (selectingCurrentLocation) {
-			setCurrentPosition(event.latlng.lat, event.latlng.lng);
+			setCurrentPosition(event.latlng.lat, event.latlng.lng, '指定した地点');
 		}
 	});
 

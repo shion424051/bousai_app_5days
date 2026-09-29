@@ -28,5 +28,26 @@
     "longitude": 140.689477,
     "image": "",
     "created_at": "2026年09月29日 13:47"
+  },
+  {
+    "id": "fushimi-station",
+    "name": "伏見駅",
+    "description": "",
+    "type": "other",
+    "latitude": 35.1696587,
+    "longitude": 136.9011239,
+    "radius_m": 1000,
+    "image": "",
+    "created_at": "2026年09月29日"
+  },
+  {
+    "id": 4,
+    "name": "名古屋駅",
+    "description": "",
+    "type": "flood",
+    "latitude": 35.171501,
+    "longitude": 136.882517,
+    "image": "",
+    "created_at": "2026年09月29日 14:55"
   }
 ]

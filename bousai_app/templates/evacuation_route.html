@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}避難経路表示画面 | 防災アプリ{% endblock %}
+{% block body_class %}evacuation-body{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+    .evacuation-body {
+        --ink: #263746;
+        --muted: #647381;
+        --line: #dce3e8;
+        --paper: #fff;
+        --canvas: #f7f8f9;
+        --navy: #2854a4;
+        --safe: #27834b;
+        --danger: #b93832;
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    .evacuation-body *, .evacuation-body *::before, .evacuation-body *::after { box-sizing: border-box; }
+    .evacuation-body .site-header { display: flex; align-items: center; gap: 25px; min-height: 82px; padding: 14px max(24px, calc((100vw - 1320px) / 2)); background: var(--navy); color: #fff; }
+    .evacuation-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+    .evacuation-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+    .evacuation-body .brand-name { display: grid; gap: 2px; }
+    .evacuation-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+    .evacuation-body .brand-name small { color: #d0dcee; font-size: 9px; }
+    .evacuation-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 3px; }
+    .evacuation-body .site-nav a, .evacuation-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 12px; }
+    .evacuation-body .site-nav a { padding: 9px 10px; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .evacuation-body .site-nav a[href="/evacuation_route"] { border-color: #acd2de; color: #fff; }
+    .evacuation-body .site-nav a:hover, .evacuation-body .account-nav a:hover { color: #acd2de; }
+    .evacuation-body .account-nav { display: flex; align-items: center; gap: 10px; margin-left: auto; color: #d0dcee; font-size: 11px; }
+    .evacuation-body > main { width: min(1320px, 100%); margin: 0 auto; padding: 34px 26px 54px; }
+    .route-intro { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 19px; }
+    .route-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+    .route-intro h1 { margin: 0; font-size: 27px; line-height: 1.35; }
+    .route-intro p:last-child { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+    .departure-panel, .map-panel, .distance-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+    .departure-panel { margin-bottom: 15px; }
+    .departure-tabs { display: flex; gap: 4px; padding: 12px 15px 0; border-bottom: 1px solid var(--line); }
+    .departure-tab { min-height: 41px; padding: 9px 15px; border: 1px solid transparent; border-bottom: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
+    .departure-tab[aria-selected="true"] { border-color: var(--line); background: #fff; color: var(--navy); }
+    .departure-tab:focus-visible, .action-button:focus-visible, .route-choice:focus-visible, input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 2px; }
+    .departure-content { padding: 13px 15px 15px; }
+    .departure-content[hidden] { display: none; }
+    .current-action, .address-form { display: flex; align-items: end; flex-wrap: wrap; gap: 9px; }
+    .address-field { display: grid; flex: 1 1 330px; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 700; }
+    .address-field input { width: 100%; min-height: 41px; padding: 9px 11px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; }
+    .action-button { display: inline-flex; min-height: 41px; align-items: center; justify-content: center; gap: 7px; padding: 9px 14px; border: 1px solid var(--navy); border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
+    .action-button:hover { background: #1f4389; }
+    .action-button:disabled { opacity: .55; cursor: wait; }
+    .departure-note { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .route-status { min-height: 43px; margin: 0 0 15px; padding: 12px 14px; border: 1px solid #d8e1eb; background: #f0f5fa; color: #344e68; font-size: 12px; line-height: 1.55; }
+    .route-status.is-error { border-color: #e8c0ba; background: #fbefed; color: #9d302a; }
+    .route-status.is-success { border-color: #c5dcc8; background: #edf5ed; color: #315e39; }
+    .route-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(310px, .75fr); gap: 15px; align-items: start; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 62px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .panel-heading h2 { margin: 0; font-size: 15px; }
+    .panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    #evacuationMap { width: 100%; height: 470px; background: #e5ece4; }
+    .map-legend { display: flex; flex-wrap: wrap; gap: 8px 15px; padding: 12px 15px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 11px; height: 11px; flex: 0 0 auto; border: 1px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #526170; }
+    .legend-dot.start { background: #2665c7; }
+    .legend-dot.shelter { background: #27834b; }
+    .legend-dot.danger { background: #b93832; }
+    .legend-line { width: 19px; height: 0; border-top: 3px solid #e2a222; }
+    .map-attribution { margin: 0; padding: 0 15px 11px; color: var(--muted); font-size: 10px; }
+    .distance-list { max-height: 515px; overflow-y: auto; margin: 0; padding: 0 15px; list-style: none; }
+    .distance-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 13px 0; border-bottom: 1px solid #e9edf0; }
+    .distance-item:last-child { border-bottom: 0; }
+    .shelter-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 700; line-height: 1.45; }
+    .shelter-result { display: grid; justify-items: end; gap: 3px; color: var(--navy); font-size: 12px; font-weight: 700; text-align: right; }
+    .shelter-result small { color: var(--muted); font-size: 10px; font-weight: 400; }
+    .shelter-result.is-warning, .shelter-result.is-warning small { color: var(--danger); }
+    .route-choice { grid-column: 1 / -1; justify-self: stretch; min-height: 34px; padding: 6px 9px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; text-align: left; }
+    .route-choice:hover:not(:disabled), .route-choice[aria-pressed="true"] { border-color: var(--safe); background: #edf5ed; color: #24663b; }
+    .route-choice:disabled { border-color: transparent; background: transparent; color: var(--muted); cursor: default; }
+    .empty-list { padding: 15px 0; color: var(--muted); font-size: 12px; }
+    @media (max-width: 980px) {
+        .evacuation-body .site-header { flex-wrap: wrap; gap: 10px 16px; padding: 13px 18px; }
+        .evacuation-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+        .route-layout { grid-template-columns: minmax(0, 1fr); }
+        .distance-list { max-height: none; }
+        #evacuationMap { height: 410px; }
+    }
+    @media (max-width: 560px) {
+        .evacuation-body .site-header { padding: 12px 14px 8px; }
+        .evacuation-body .site-nav { gap: 0; }
+        .evacuation-body .site-nav a { padding: 9px 8px; font-size: 11px; }
+        .evacuation-body > main { padding: 25px 13px 38px; }
+        .route-intro { align-items: flex-start; flex-direction: column; gap: 7px; }
+        .route-intro h1 { font-size: 23px; }
+        .departure-tabs { padding: 9px 9px 0; }
+        .departure-tab { flex: 1; padding: 8px 5px; }
+        .departure-content { padding: 12px; }
+        .current-action, .address-form { align-items: stretch; flex-direction: column; }
+        .action-button { width: 100%; }
+        #evacuationMap { height: 345px; }
+        .panel-heading { padding: 12px 13px; }
+        .distance-list { padding: 0 13px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="route-intro">
+    <div>
+        <p class="eyebrow">WALKING ROUTES / AREA SAFETY</p>
+        <h1>避難経路表示画面</h1>
+    </div>
+    <p>危険範囲を避けた徒歩経路を表示します</p>
+</div>
+
+<section class="departure-panel" aria-label="出発地点の指定">
+    <div class="departure-tabs" role="tablist" aria-label="出発地点の種類">
+        <button class="departure-tab" id="currentTab" type="button" role="tab" aria-selected="true" aria-controls="currentPanel" tabindex="0">現在地から</button>
+        <button class="departure-tab" id="homeTab" type="button" role="tab" aria-selected="false" aria-controls="homePanel" tabindex="-1">自宅から</button>
+    </div>
+    <div class="departure-content" id="currentPanel" role="tabpanel" aria-labelledby="currentTab">
+        <div class="current-action">
+            <button class="action-button" id="locateButton" type="button">現在地を取得して経路を検索</button>
+        </div>
+        <p class="departure-note">位置情報はこのボタンを押したときだけ取得し、保存しません。</p>
+    </div>
+    <div class="departure-content" id="homePanel" role="tabpanel" aria-labelledby="homeTab" hidden>
+        <form class="address-form" id="addressForm">
+            <label class="address-field" for="homeAddress">自宅の住所
+                <input id="homeAddress" name="address" type="search" maxlength="250" autocomplete="street-address" placeholder="住所を入力" required>
+            </label>
+            <button class="action-button" id="addressButton" type="submit">住所から経路を検索</button>
+        </form>
+        <p class="departure-note">日本国内を検索します。名古屋市・愛知県の地図範囲を優先します。</p>
+    </div>
+</section>
+
+<p class="route-status" id="routeStatus" role="status" aria-live="polite">出発地点を指定してください。避難所はすべて一覧に表示しています。</p>
+
+<div class="route-layout">
+    <section class="map-panel" aria-labelledby="mapTitle">
+        <div class="panel-heading">
+            <div>
+                <h2 id="mapTitle">避難経路マップ</h2>
+                <p>出発地・登録避難所・危険場所</p>
+            </div>
+        </div>
+        <div id="evacuationMap" role="region" aria-label="出発地、避難所、危険範囲、徒歩経路を示す地図"></div>
+        <div class="map-legend" aria-label="地図の凡例">
+            <span class="legend-item"><i class="legend-dot start" aria-hidden="true"></i>出発地</span>
+            <span class="legend-item"><i class="legend-dot shelter" aria-hidden="true"></i>避難所</span>
+            <span class="legend-item"><i class="legend-dot danger" aria-hidden="true"></i>危険地点・危険範囲（半径 <strong id="dangerRadius">1,000m</strong>）</span>
+            <span class="legend-item"><i class="legend-line" aria-hidden="true"></i>選択中の安全な徒歩経路</span>
+        </div>
+        <p class="map-attribution">地図 © OpenStreetMap contributors / 住所検索 © OpenStreetMap Nominatim / 徒歩経路 Valhalla</p>
+    </section>
+
+    <section class="distance-panel" aria-labelledby="distanceTitle">
+        <div class="panel-heading">
+            <div>
+                <h2 id="distanceTitle">避難所までの距離</h2>
+                <p id="resultSummary">出発地点の指定待ち</p>
+            </div>
+        </div>
+        <ol class="distance-list" id="shelterResults" aria-label="避難所までの徒歩経路距離一覧">
+            {% for shelter in shelters %}
+            <li class="distance-item" data-shelter-id="{{ shelter.id }}">
+                <span class="shelter-name">{{ shelter.name }}</span>
+                <span class="shelter-result"><span>--</span><small>計算待ち</small></span>
+                <button class="route-choice" type="button" disabled aria-pressed="false">徒歩経路を表示</button>
+            </li>
+            {% else %}
+            <li class="empty-list">避難所が登録されていません。</li>
+            {% endfor %}
+        </ol>
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const registeredShelters = {{ shelters|tojson }};
+    const status = document.getElementById('routeStatus');
+    const resultsList = document.getElementById('shelterResults');
+    const resultSummary = document.getElementById('resultSummary');
+    const locateButton = document.getElementById('locateButton');
+    const addressButton = document.getElementById('addressButton');
+    const tabs = [document.getElementById('currentTab'), document.getElementById('homeTab')];
+    const currentPanel = document.getElementById('currentPanel');
+    const homePanel = document.getElementById('homePanel');
+    const rowById = new Map(Array.from(resultsList.querySelectorAll('[data-shelter-id]'))
+        .map(row => [String(row.dataset.shelterId), row]));
+    let origin = null;
+    let selectedRouteId = null;
+    let routeLayer = null;
+    let originMarker = null;
+    let shelterMarkers = new Map();
+    let safeRoutes = [];
+    let requestVersion = 0;
+    let dangerDataLoaded = false;
+
+    function setStatus(message, kind = '') {
+        status.textContent = message;
+        status.className = `route-status${kind ? ` is-${kind}` : ''}`;
+    }
+
+    function setMode(index) {
+        tabs.forEach((tab, tabIndex) => {
+            const active = tabIndex === index;
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+        });
+        currentPanel.hidden = index !== 0;
+        homePanel.hidden = index !== 1;
+    }
+
+    tabs.forEach((tab, index) => tab.addEventListener('click', () => setMode(index)));
+    document.querySelector('[role="tablist"]').addEventListener('keydown', event => {
+        const activeIndex = tabs.indexOf(document.activeElement);
+        let nextIndex = null;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (activeIndex + 1) % tabs.length;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (activeIndex + tabs.length - 1) % tabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = tabs.length - 1;
+        if (nextIndex !== null) {
+            event.preventDefault();
+            tabs[nextIndex].focus();
+            setMode(nextIndex);
+        }
+    });
+
+    function showPending() {
+        registeredShelters.forEach(shelter => {
+            const row = rowById.get(String(shelter.id));
+            if (!row) return;
+            row.querySelector('.shelter-result').className = 'shelter-result';
+            row.querySelector('.shelter-result').innerHTML = '<span>--</span><small>計算待ち</small>';
+            const button = row.querySelector('.route-choice');
+            button.disabled = true;
+            button.setAttribute('aria-pressed', 'false');
+        });
+        safeRoutes = [];
+        selectedRouteId = null;
+        if (routeLayer) routeLayer.remove();
+        routeLayer = null;
+    }
+
+    function formatDistance(meters) {
+        return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
+    }
+
+    function formatDuration(seconds) {
+        const minutes = Math.max(1, Math.round(seconds / 60));
+        return `${minutes}分`;
+    }
+
+    function renderRoute(route) {
+        if (!route || route.status !== 'safe' || !route.geometry) return;
+        if (routeLayer) routeLayer.remove();
+        routeLayer = L.geoJSON(route.geometry, {
+            style: { color: '#d68b12', weight: 6, opacity: 0.92 }
+        }).addTo(map);
+        shelterMarkers.get(String(route.id))?.openPopup();
+        const bounds = routeLayer.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds.pad(0.18), { maxZoom: 15 });
+        safeRoutes.forEach(item => {
+            const row = rowById.get(String(item.id));
+            row?.querySelector('.route-choice')?.setAttribute('aria-pressed', String(item.id === route.id));
+        });
+    }
+
+    function renderResults(data) {
+        const ordered = [...(data.results || [])].sort((left, right) => {
+            const leftSafe = left.status === 'safe';
+            const rightSafe = right.status === 'safe';
+            return Number(rightSafe) - Number(leftSafe)
+                || (left.distance_m ?? Infinity) - (right.distance_m ?? Infinity);
+        });
+        ordered.forEach(result => {
+            const row = rowById.get(String(result.id));
+            if (!row) return;
+            const detail = row.querySelector('.shelter-result');
+            const button = row.querySelector('.route-choice');
+            button.disabled = result.status !== 'safe';
+            button.setAttribute('aria-pressed', 'false');
+            if (result.status === 'safe') {
+                detail.className = 'shelter-result';
+                detail.innerHTML = `<span>${formatDistance(result.distance_m)}</span><small>徒歩 ${formatDuration(result.duration_s)}</small>`;
+                button.textContent = 'この徒歩経路を地図に表示';
+                button.onclick = () => renderRoute(result);
+            } else {
+                detail.className = 'shelter-result is-warning';
+                const explanation = {
+                    danger_zone: '危険範囲内のため通行不可',
+                    unlocated: '位置情報未登録',
+                    route_unavailable: '安全な経路を取得できません'
+                }[result.status] || '経路を確認できません';
+                detail.innerHTML = `<span>--</span><small>${explanation}</small>`;
+                button.textContent = explanation;
+                button.onclick = null;
+            }
+        });
+        resultsList.replaceChildren(...ordered.map(result => rowById.get(String(result.id)).closest('li')));
+        safeRoutes = ordered.filter(result => result.status === 'safe');
+        resultSummary.textContent = safeRoutes.length
+            ? `安全な徒歩経路 ${safeRoutes.length} 件 / 距離の短い順`
+            : '安全な徒歩経路なし';
+        if (safeRoutes.length) {
+            renderRoute(safeRoutes[0]);
+            setStatus('危険範囲を避けた徒歩経路を距離の短い順に表示しています。', 'success');
+        } else if (data.provider_failures > 0) {
+            setStatus('徒歩経路サービスに接続できません。安全な経路を取得できません。', 'error');
+        } else if (ordered.some(result => result.status === 'route_unavailable')) {
+            setStatus('安全な経路を取得できません。別の出発地をお試しください。', 'error');
+        } else {
+            setStatus('経路計算可能な位置登録済み避難所がありません。避難所の位置登録が必要です。', 'error');
+        }
+    }
+
+    async function searchRoutes(latitude, longitude) {
+        origin = { latitude, longitude };
+        const version = ++requestVersion;
+        showPending();
+        if (originMarker) originMarker.remove();
+        originMarker = L.circleMarker([latitude, longitude], {
+            radius: 9, color: '#fff', weight: 2, fillColor: '#2665c7', fillOpacity: 1
+        }).addTo(map).bindPopup('出発地');
+        map.setView([latitude, longitude], 13);
+        if (!dangerDataLoaded) {
+            setStatus('危険区域を確認できないため、経路を表示できません。', 'error');
+            return;
+        }
+        locateButton.disabled = true;
+        addressButton.disabled = true;
+        resultSummary.textContent = '徒歩経路を計算中';
+        setStatus('危険区域を除外して徒歩経路を検索しています。', '');
+        try {
+            const response = await fetch('/api/evacuation/routes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(origin)
+            });
+            const data = await response.json();
+            if (version !== requestVersion) return;
+            if (response.status === 409 || data.status === 'origin_in_danger') {
+                setStatus(data.error || '出発地点が危険範囲内です。別の場所を指定してください。', 'error');
+                resultSummary.textContent = '出発地点を変更してください';
+                return;
+            }
+            if (!response.ok) throw new Error(data.error || '経路検索に失敗しました。');
+            renderResults(data);
+        } catch (error) {
+            if (version === requestVersion) {
+                resultSummary.textContent = '経路検索に失敗';
+                setStatus('徒歩経路サービスと通信できません。安全な経路を取得できません。', 'error');
+            }
+        } finally {
+            locateButton.disabled = false;
+            addressButton.disabled = false;
+        }
+    }
+
+    locateButton.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            setStatus('このブラウザーでは位置情報を利用できません。自宅住所を入力してください。', 'error');
+            return;
+        }
+        locateButton.disabled = true;
+        setStatus('許可を確認して現在地を取得しています。', '');
+        navigator.geolocation.getCurrentPosition(position => {
+            searchRoutes(position.coords.latitude, position.coords.longitude);
+        }, error => {
+            locateButton.disabled = false;
+            const message = error.code === error.PERMISSION_DENIED
+                ? '位置情報が許可されませんでした。許可するか、自宅住所を入力してください。'
+                : error.code === error.POSITION_UNAVAILABLE
+                    ? '現在地を確認できません。自宅住所を入力してください。'
+                    : '現在地の取得がタイムアウトしました。もう一度お試しください。';
+            setStatus(message, 'error');
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    });
+
+    document.getElementById('addressForm').addEventListener('submit', async event => {
+        event.preventDefault();
+        const address = document.getElementById('homeAddress').value.trim();
+        if (!address) return;
+        addressButton.disabled = true;
+        setStatus('住所を検索しています。', '');
+        try {
+            const response = await fetch('/api/evacuation/geocode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address })
+            });
+            const data = await response.json();
+            if (response.status === 404) {
+                setStatus('住所が見つかりません。住所を確認して再入力してください。', 'error');
+                return;
+            }
+            if (!response.ok) throw new Error(data.error || '住所検索に失敗しました。');
+            await searchRoutes(data.latitude, data.longitude);
+        } catch (error) {
+            setStatus(error.message || '住所検索サービスを利用できません。時間をおいて再度お試しください。', 'error');
+        } finally {
+            addressButton.disabled = false;
+        }
+    });
+
+    if (!window.L) {
+        locateButton.disabled = true;
+        addressButton.disabled = true;
+        setStatus('地図サービスを読み込めません。経路を表示できません。', 'error');
+        return;
+    }
+
+    const map = L.map('evacuationMap').setView([40.8246, 140.7400], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        referrerPolicy: 'strict-origin-when-cross-origin'
+    }).addTo(map);
+    const shelterIcon = L.divIcon({
+        className: '',
+        html: '<span style="display:block;width:17px;height:17px;border:2px solid #fff;border-radius:50%;background:#27834b;box-shadow:0 1px 4px #20304088"></span>',
+        iconSize: [17, 17],
+        iconAnchor: [8, 8]
+    });
+
+    registeredShelters.forEach(shelter => {
+        if (!Number.isFinite(shelter.latitude) || !Number.isFinite(shelter.longitude)) return;
+        const marker = L.marker([shelter.latitude, shelter.longitude], { icon: shelterIcon }).addTo(map);
+        const popup = document.createElement('span');
+        popup.textContent = shelter.name || '名称未設定';
+        marker.bindPopup(popup);
+        shelterMarkers.set(String(shelter.id), marker);
+    });
+
+    fetch('/api/evacuation/danger_places')
+        .then(response => {
+            if (!response.ok) throw new Error('danger data unavailable');
+            return response.json();
+        })
+        .then(places => {
+            const layer = L.featureGroup();
+            let largestRadius = 0;
+            places.forEach(place => {
+                const latitude = Number(place.latitude);
+                const longitude = Number(place.longitude);
+                const reportedRadius = Number(place.radius_m);
+                const radius = Number.isFinite(reportedRadius) && reportedRadius > 0
+                    ? reportedRadius : 0;
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+                largestRadius = Math.max(largestRadius, radius);
+                if (radius > 0) {
+                    L.circle([latitude, longitude], {
+                        radius, color: '#b93832', weight: 2, fillColor: '#d75148', fillOpacity: 0.15
+                    }).addTo(layer);
+                }
+                const marker = L.circleMarker([latitude, longitude], {
+                    radius: 7, color: '#fff', weight: 2, fillColor: '#b93832', fillOpacity: 1
+                }).addTo(layer);
+                const popup = document.createElement('span');
+                popup.textContent = radius > 0
+                    ? `${place.name}（半径 ${radius.toLocaleString()}m）`
+                    : `${place.name}（範囲未登録）`;
+                marker.bindPopup(popup);
+            });
+            layer.addTo(map);
+            if (largestRadius) document.getElementById('dangerRadius').textContent = `${largestRadius.toLocaleString()}m`;
+            dangerDataLoaded = true;
+        })
+        .catch(() => setStatus('危険区域を読み込めません。安全確認ができないため経路を検索できません。', 'error'));
+});
+</script>
+{% endblock %}

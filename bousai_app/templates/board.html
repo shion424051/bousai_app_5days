@@ -45,7 +45,7 @@
   .board-intro p:last-child { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
   .board-message { margin: 0 0 18px; padding: 12px 15px; border: 1px solid #c5dcc8; background: #edf5ed; color: #315e39; font-size: 13px; }
   .board-message.is-error { border-color: #efc9be; background: #fbefeb; color: #a83c30; }
-  .board-grid { display: grid; grid-template-columns: minmax(300px, .78fr) minmax(0, 1.22fr); gap: 18px; align-items: start; }
+  .board-sections { display: grid; gap: 18px; }
   .board-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
   .board-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
   .board-panel-heading h2 { margin: 0; font-size: 16px; }
@@ -53,9 +53,9 @@
   .publish-form { display: grid; gap: 15px; padding: 18px; }
   .board-field { display: grid; gap: 7px; }
   .board-field label { font-size: 12px; font-weight: 700; }
-  .board-field textarea, .board-field input { width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; }
+  .board-field textarea, .board-field input, .board-field select { width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; }
   .board-field textarea { min-height: 136px; resize: vertical; line-height: 1.6; }
-  .board-field textarea:focus-visible, .board-field input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
+  .board-field textarea:focus-visible, .board-field input:focus-visible, .board-field select:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
   .board-button { min-height: 43px; padding: 10px 14px; border: 0; border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; }
   .board-button:hover { background: #1f4389; }
   .board-button.resolve { min-height: 34px; padding: 7px 10px; border: 1px solid #d9a49b; background: #fff; color: #a83c30; font-size: 11px; }
@@ -64,18 +64,28 @@
   .notice-item { display: grid; gap: 9px; padding: 16px 0; border-bottom: 1px solid #e9edf0; }
   .notice-item:last-child { border-bottom: 0; }
   .notice-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted); font-size: 11px; }
-  .notice-status { padding: 3px 7px; background: #fbefeb; color: var(--alert); font-size: 10px; font-weight: 700; }
+  .notice-status { padding: 3px 7px; background: #edf2f8; color: #355a8e; font-size: 10px; font-weight: 700; }
+  .urgency-tag { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-left: 3px solid; font-size: 11px; font-weight: 800; }
+  .urgency-tag.urgent { border-color: #bd372f; background: #fff0ed; color: #a52d26; }
+  .urgency-tag.warning { border-color: #d87919; background: #fff4e6; color: #97500c; }
+  .urgency-tag.normal { border-color: #3972aa; background: #edf5fc; color: #285783; }
   .notice-content { margin: 0; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
   .notice-shelter { margin: -3px 0 0; color: var(--muted); font-size: 12px; }
-  .notice-actions { display: flex; justify-content: flex-end; }
+  .notice-actions { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: 8px; }
+  .notice-actions .board-field { min-width: 150px; }
+  .notice-actions .board-field label { color: var(--muted); font-size: 10px; }
+  .notice-actions select { min-height: 34px; padding: 6px 8px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; font: inherit; font-size: 11px; }
+  .notice-actions .board-button { min-height: 34px; padding: 7px 10px; font-size: 11px; }
+  .edit-notice { display: grid; gap: 12px; padding: 13px; border: 1px solid #e2e7eb; background: #fafbfc; }
+  .edit-notice summary { color: #2854a4; cursor: pointer; font-size: 12px; font-weight: 700; }
+  .edit-notice[open] summary { margin-bottom: 3px; }
+  .edit-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .edit-fields .board-field:first-child { grid-column: 1 / -1; }
+  .edit-fields textarea { min-height: 90px; }
   .empty-notices { margin: 0; padding: 24px 18px; color: var(--muted); font-size: 13px; }
-  .history { margin-top: 18px; border-top: 1px solid var(--line); }
-  .history summary { padding: 14px 18px; color: var(--muted); cursor: pointer; font-size: 12px; }
-  .history .notice-status { background: #f0f2f4; color: #6b747d; }
   @media (max-width: 940px) {
     .board-body .site-header { flex-wrap: wrap; gap: 10px 18px; padding: 14px 20px; }
     .board-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
-    .board-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 560px) {
     .board-body .site-header { padding: 12px 14px 8px; }
@@ -87,6 +97,10 @@
     .board-panel-heading { padding: 12px 14px; }
     .publish-form { padding: 14px; }
     .notice-list { padding: 0 14px; }
+    .edit-fields { grid-template-columns: 1fr; }
+    .edit-fields .board-field:first-child { grid-column: auto; }
+    .notice-actions { justify-content: flex-start; }
+    .notice-actions .board-field { flex: 1; }
   }
 </style>
 {% endblock %}
@@ -95,81 +109,156 @@
 <div class="board-intro">
   <div>
     <p class="eyebrow">PUBLIC SAFETY MESSAGES</p>
-    <h1>住民への発信</h1>
+    <h1>指示・発信ボード</h1>
   </div>
-  <p>公開中の発信はホーム画面の上部に表示されます</p>
+  <p>住民向け発信と関係機関の対応状況を管理します</p>
 </div>
 
 {% if message %}<p class="board-message" role="status">{{ message }}</p>{% endif %}
 {% if error %}<p class="board-message is-error" role="alert">{{ error }}</p>{% endif %}
 
-<div class="board-grid">
+<div class="board-sections">
   <section class="board-panel" aria-labelledby="publish-title">
     <div class="board-panel-heading">
       <div>
-        <h2 id="publish-title">新しい発信</h2>
-        <p>登録するとホーム画面にすぐ反映されます</p>
+        <h2 id="publish-title">1. 指示・避難情報の登録</h2>
+        <p>住民向け情報はホーム画面に表示されます</p>
       </div>
     </div>
     <form class="publish-form" method="post">
-      <input type="hidden" name="action" value="publish">
+      <input type="hidden" name="action" value="create">
       <div class="board-field">
-        <label for="content">発信内容 <span aria-hidden="true">*</span></label>
-        <textarea id="content" name="content" maxlength="1000" rows="5" required>{{ form_data.get('content', '') }}</textarea>
+        <label for="content">指示・発信内容 <span aria-hidden="true">*</span></label>
+        <textarea id="content" name="content" maxlength="1000" rows="4" required>{{ form_data.get('content', '') }}</textarea>
       </div>
-      <div class="board-field">
-        <label for="shelter">避難先（任意）</label>
-        <input type="text" id="shelter" name="shelter" value="{{ form_data.get('shelter', '') }}" maxlength="100">
+      <div class="edit-fields">
+        <div class="board-field">
+          <label for="target">発信先 <span aria-hidden="true">*</span></label>
+          <select id="target" name="target" required>
+            <option value="">選択してください</option>
+            {% for target in targets %}<option value="{{ target }}" {% if form_data.get('target') == target %}selected{% endif %}>{{ target }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="board-field">
+          <label for="urgency">緊急度 <span aria-hidden="true">*</span></label>
+          <select id="urgency" name="urgency" required>
+            <option value="">選択してください</option>
+            {% for urgency in urgencies %}<option value="{{ urgency }}" {% if form_data.get('urgency') == urgency %}selected{% endif %}>{{ urgency }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="board-field">
+          <label for="shelter_id">避難先（任意）</label>
+          <select id="shelter_id" name="shelter_id">
+            <option value="">指定しない</option>
+            {% for shelter in shelters %}<option value="{{ shelter.id }}" {% if form_data.get('shelter_id') == shelter.id|string %}selected{% endif %}>{{ shelter.name }}</option>{% endfor %}
+          </select>
+        </div>
       </div>
-      <button class="board-button" type="submit">住民へ発信</button>
+      <button class="board-button" type="submit">登録する</button>
     </form>
   </section>
 
-  <section class="board-panel" aria-labelledby="active-title">
+  <section class="board-panel" aria-labelledby="residents-title">
     <div class="board-panel-heading">
       <div>
-        <h2 id="active-title">公開中</h2>
-        <p>{{ active_instructions|length }} 件</p>
+        <h2 id="residents-title">2. 住民向け発信一覧</h2>
+        <p>解除前の情報がホーム画面に公開されます（全 {{ resident_instructions|length }} 件）</p>
       </div>
     </div>
-    {% if active_instructions %}
+    {% if resident_instructions %}
     <ol class="notice-list">
-      {% for inst in active_instructions %}
+      {% for inst in resident_instructions %}
       <li class="notice-item">
         <div class="notice-meta">
-          <span class="notice-status">発信中</span>
-          <span>{{ inst.created_at or '日時不明' }}</span>
+          <span class="urgency-tag {{ inst.urgency_class }}">{{ inst.urgency }}</span>
+          <span class="notice-status">{{ inst.status }}</span>
+          <span>発信 {{ inst.created_at or '日時不明' }}</span>
+          <span>更新 {{ inst.updated_at or inst.created_at or '日時不明' }}</span>
         </div>
         <p class="notice-content">{{ inst.content }}</p>
         {% if inst.shelter %}<p class="notice-shelter">避難先: {{ inst.shelter }}</p>{% endif %}
+        <details class="edit-notice">
+          <summary>発信内容を編集</summary>
+          <form method="post">
+            <input type="hidden" name="action" value="edit_resident">
+            <input type="hidden" name="instruction_id" value="{{ inst.id }}">
+            <div class="edit-fields">
+              <div class="board-field">
+                <label for="edit-content-{{ inst.id }}">発信内容</label>
+                <textarea id="edit-content-{{ inst.id }}" name="content" maxlength="1000" required>{{ inst.content }}</textarea>
+              </div>
+              <div class="board-field">
+                <label for="edit-urgency-{{ inst.id }}">緊急度</label>
+                <select id="edit-urgency-{{ inst.id }}" name="urgency" required>
+                  {% for urgency in urgencies %}<option value="{{ urgency }}" {% if inst.urgency == urgency %}selected{% endif %}>{{ urgency }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="board-field">
+                <label for="edit-shelter-{{ inst.id }}">避難先</label>
+                <select id="edit-shelter-{{ inst.id }}" name="shelter_id">
+                  <option value="">指定しない</option>
+                  {% for shelter in shelters %}<option value="{{ shelter.id }}" {% if inst.shelter == shelter.name %}selected{% endif %}>{{ shelter.name }}</option>{% endfor %}
+                </select>
+              </div>
+            </div>
+            <button class="board-button" type="submit">変更を保存</button>
+          </form>
+        </details>
         <form class="notice-actions" method="post">
-          <input type="hidden" name="action" value="resolve">
+          <input type="hidden" name="action" value="update_status">
           <input type="hidden" name="instruction_id" value="{{ inst.id }}">
-          <button class="board-button resolve" type="submit">発信を解除</button>
+          <div class="board-field">
+            <label for="resident-status-{{ inst.id }}">対応状況</label>
+            <select id="resident-status-{{ inst.id }}" name="status">
+              {% for status in resident_statuses %}<option value="{{ status }}" {% if inst.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}
+            </select>
+          </div>
+          <button class="board-button" type="submit">状態を更新</button>
         </form>
       </li>
       {% endfor %}
     </ol>
     {% else %}
-    <p class="empty-notices">現在、公開中の発信はありません。</p>
+    <p class="empty-notices">住民向け発信はまだありません。</p>
     {% endif %}
+  </section>
 
-    {% if resolved_instructions %}
-    <details class="history">
-      <summary>解除済みの発信（{{ resolved_instructions|length }}件）</summary>
+  <section class="board-panel" aria-labelledby="agencies-title">
+    <div class="board-panel-heading">
+      <div>
+        <h2 id="agencies-title">3. 防災課・関係機関の対応管理</h2>
+        <p>住民向け発信を除く関係機関向け指示（全 {{ agency_instructions|length }} 件）</p>
+      </div>
+    </div>
+    {% if agency_instructions %}
       <ol class="notice-list">
-        {% for inst in resolved_instructions %}
+        {% for inst in agency_instructions %}
         <li class="notice-item">
           <div class="notice-meta">
-            <span class="notice-status">{{ inst.status }}</span>
-            <span>{{ inst.updated_at or inst.created_at or '日時不明' }}</span>
+            <span class="notice-status">{{ inst.target }}</span>
+            <span class="urgency-tag {{ inst.urgency_class }}">{{ inst.urgency }}</span>
+            <span>{{ inst.status }}</span>
+            <span>登録 {{ inst.created_at or '日時不明' }}</span>
+            <span>更新 {{ inst.updated_at or inst.created_at or '日時不明' }}</span>
           </div>
           <p class="notice-content">{{ inst.content }}</p>
           {% if inst.shelter %}<p class="notice-shelter">避難先: {{ inst.shelter }}</p>{% endif %}
+          <form class="notice-actions" method="post">
+            <input type="hidden" name="action" value="update_status">
+            <input type="hidden" name="instruction_id" value="{{ inst.id }}">
+            <div class="board-field">
+              <label for="agency-status-{{ inst.id }}">対応状況</label>
+              <select id="agency-status-{{ inst.id }}" name="status">
+                {% for status in agency_statuses %}<option value="{{ status }}" {% if inst.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}
+              </select>
+            </div>
+            <button class="board-button" type="submit">状態を更新</button>
+          </form>
         </li>
         {% endfor %}
       </ol>
-    </details>
+    {% else %}
+      <p class="empty-notices">関係機関向け指示はまだありません。</p>
     {% endif %}
   </section>
 </div>

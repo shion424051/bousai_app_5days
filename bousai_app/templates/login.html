@@ -1,27 +1,94 @@
 {% extends "base.html" %}
 
 {% block title %}管理者ログイン{% endblock %}
+{% block body_class %}login-body{% endblock %}
+{% block head %}
+<style>
+  .login-body {
+    --ink: #263746;
+    --muted: #647381;
+    --line: #dce3e8;
+    --paper: #fff;
+    --canvas: #f7f8f9;
+    --navy: #2854a4;
+    --alert: #a83c30;
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  }
+  .login-body *, .login-body *::before, .login-body *::after { box-sizing: border-box; }
+  .login-body .site-header {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    min-height: 82px;
+    padding: 14px max(28px, calc((100vw - 1320px) / 2));
+    background: var(--navy);
+    color: #fffefa;
+  }
+  .login-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+  .login-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #a6c5b4; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+  .login-body .brand-name { display: grid; gap: 2px; }
+  .login-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+  .login-body .brand-name small { color: #d0dcee; font-size: 9px; }
+  .login-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 6px; }
+  .login-body .site-nav a, .login-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 13px; }
+  .login-body .site-nav a { padding: 10px 12px; border-bottom: 2px solid transparent; }
+  .login-body .site-nav a:hover, .login-body .account-nav a:hover { color: #acd2de; }
+  .login-body .account-nav { display: flex; align-items: center; gap: 12px; color: #d0dcee; font-size: 11px; }
+  .login-body > main { width: min(1320px, 100%); margin: 0 auto; padding: 38px 28px 56px; }
+  .login-intro { margin: 0 0 22px; }
+  .login-intro .eyebrow { margin: 0 0 8px; color: #647e9d; font-size: 10px; font-weight: 700; }
+  .login-intro h1 { margin: 0; font-size: 28px; line-height: 1.35; }
+  .login-intro p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+  .login-panel { width: min(520px, 100%); border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
+  .login-panel-heading { padding: 16px 19px; border-bottom: 1px solid var(--line); }
+  .login-panel-heading h2 { margin: 0; font-size: 15px; }
+  .login-form { display: grid; gap: 15px; padding: 19px; }
+  .login-field { display: grid; gap: 7px; }
+  .login-field label { font-size: 12px; font-weight: 700; }
+  .login-field input { width: 100%; min-height: 43px; padding: 10px 11px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; }
+  .login-field input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
+  .login-error { margin: 16px 19px 0; padding: 11px 13px; border: 1px solid #efc9be; background: #fbefeb; color: var(--alert); font-size: 12px; }
+  .login-button { min-height: 43px; padding: 10px 14px; border: 0; border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; }
+  .login-button:hover { background: #1f4389; }
+  @media (max-width: 940px) {
+    .login-body .site-header { flex-wrap: wrap; gap: 10px 18px; padding: 14px 20px; }
+    .login-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+  }
+  @media (max-width: 560px) {
+    .login-body .site-header { padding: 12px 14px 8px; }
+    .login-body .site-nav { gap: 0; }
+    .login-body .site-nav a { padding: 9px 10px; white-space: nowrap; font-size: 12px; }
+    .login-body > main { padding: 27px 14px 40px; }
+    .login-intro h1 { font-size: 23px; }
+    .login-form { padding: 15px; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2>管理者ログイン</h2>
-<p>指示ボード・避難所登録の利用には管理者権限が必要です。</p>
+<section aria-labelledby="login-title">
+  <header class="login-intro">
+    <p class="eyebrow">ADMINISTRATOR ACCESS</p>
+    <h1 id="login-title">管理者ログイン</h1>
+    <p>指示ボード・避難所登録の利用には管理者権限が必要です。</p>
+  </header>
 
-{% if error %}
-  <p>{{ message }}</p>
-{% endif %}
+  <section class="login-panel" aria-labelledby="login-panel-title">
+    <div class="login-panel-heading"><h2 id="login-panel-title">ログイン情報</h2></div>
+    {% if error %}<p class="login-error" role="alert">{{ message }}</p>{% endif %}
 
-<form method="post">
-  <!-- リダイレクト先URLを保持 -->
-  {% if next %}
-    <input type="hidden" name="next" value="{{ next }}">
-  {% endif %}
-
-  <p>
-    <label for="password">パスワード（「123」と入力してください）</label><br>
-    <input type="password" id="password" name="password" required>
-  </p>
-
-  <p><button type="submit">ログイン</button></p>
-</form>
+    <form class="login-form" method="post">
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <div class="login-field">
+        <label for="password">管理者パスワード</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button class="login-button" type="submit">ログイン</button>
+    </form>
+  </section>
+</section>
 
 {% endblock %}

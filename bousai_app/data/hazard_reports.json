@@ -1,0 +1,46 @@
+[
+  {
+    "id": "f74778b305cf4677b15facb7ee6c4205",
+    "name": "福田橋",
+    "address": "福田橋, 青森十和田湖自転車道線, 桜川四丁目, 松森, 青森市, 青森県, 030-0965, 日本",
+    "type": "河川氾濫",
+    "description": "",
+    "latitude": 40.817645,
+    "longitude": 140.771214,
+    "attachments": [],
+    "created_at": "2026年09月29日 15:49"
+  },
+  {
+    "id": "47159b58f69942d689a62920018b630b",
+    "name": "三内",
+    "address": "三内, 青森市, 青森県, 038-0031, 日本",
+    "type": "倒木・落下物",
+    "description": "",
+    "latitude": 40.820276,
+    "longitude": 140.690405,
+    "attachments": [],
+    "created_at": "2026年09月29日 15:49"
+  },
+  {
+    "id": "22e85c3d20ab4ed08413328fdb2dd94b",
+    "name": "青柳一丁目",
+    "address": "青柳一丁目, 茶屋町, 青森市, 青森県, 030-0811, 日本",
+    "type": "津波",
+    "description": "",
+    "latitude": 40.849889,
+    "longitude": 140.756669,
+    "attachments": [],
+    "created_at": "2026年09月29日 15:49"
+  },
+  {
+    "id": "752ab8940c7f43c7aafaa828940c774d",
+    "name": "青森環状道路",
+    "address": "青森環状道路, 妙見一丁目, 筒井, 青森市, 青森県, 030-0944, 日本",
+    "type": "道路の損傷",
+    "description": "",
+    "latitude": 40.790651,
+    "longitude": 140.771432,
+    "attachments": [],
+    "created_at": "2026年09月29日 15:49"
+  }
+]
