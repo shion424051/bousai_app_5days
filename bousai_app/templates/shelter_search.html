@@ -1,8 +1,427 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h2>避難所検索</h2>
-<p>登録されている避難所を確認できます。</p>
+{% block title %}近くの避難所 | 防災アプリ{% endblock %}
+{% block body_class %}shelter-search-body{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+	.shelter-search-body {
+		--ink: #263746;
+		--muted: #647381;
+		--line: #dce3e8;
+		--paper: #fff;
+		--canvas: #f7f8f9;
+		--navy: #2854a4;
+		--alert: #a83c30;
+		margin: 0;
+		background: var(--canvas);
+		color: var(--ink);
+		font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+	}
+	.shelter-search-body *, .shelter-search-body *::before, .shelter-search-body *::after { box-sizing: border-box; }
+	.shelter-search-body .site-header {
+		display: flex;
+		align-items: center;
+		gap: 28px;
+		min-height: 82px;
+		padding: 14px max(28px, calc((100vw - 1320px) / 2));
+		background: var(--navy);
+		color: #fff;
+	}
+	.shelter-search-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+	.shelter-search-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+	.shelter-search-body .brand-name { display: grid; gap: 2px; }
+	.shelter-search-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+	.shelter-search-body .brand-name small { color: #d0dcee; font-size: 9px; }
+	.shelter-search-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 6px; }
+	.shelter-search-body .site-nav a, .shelter-search-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 13px; }
+	.shelter-search-body .site-nav a { padding: 10px 12px; border-bottom: 2px solid transparent; }
+	.shelter-search-body .site-nav a[href="/shelter_search"] { border-color: #acd2de; color: #fff; }
+	.shelter-search-body .site-nav a:hover, .shelter-search-body .account-nav a:hover { color: #acd2de; }
+	.shelter-search-body .account-nav { display: flex; align-items: center; gap: 12px; margin-left: auto; color: #d0dcee; font-size: 11px; }
+	.shelter-search-body > main { width: min(1320px, 100%); margin: 0 auto; padding: 34px 28px 56px; }
+	.search-intro { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+	.search-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+	.search-intro h1 { margin: 0; font-size: 27px; line-height: 1.35; }
+	.search-intro p:last-child { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+	.search-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(340px, .8fr); gap: 16px; align-items: start; }
+	.search-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+	.search-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 66px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
+	.search-panel-heading h2 { margin: 0; font-size: 15px; }
+	.search-panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+	.location-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+	.search-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 39px; padding: 8px 11px; border: 1px solid #b8c8d7; border-radius: 3px; background: #fff; color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
+	.search-button:hover { border-color: #7495c6; background: #f3f7fc; }
+	.search-button.primary { border-color: var(--navy); background: var(--navy); color: #fff; }
+	.search-button.primary:hover { background: #1f4389; }
+	.search-button:disabled { opacity: .5; cursor: not-allowed; }
+	#shelterMap { width: 100%; height: 465px; background: #e5ece4; }
+	.map-status { min-height: 42px; margin: 0; padding: 12px 16px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+	.map-status.is-error { color: var(--alert); }
+	.shelter-results { max-height: 465px; overflow-y: auto; }
+	.result-list { margin: 0; padding: 0 16px; list-style: none; }
+	.result-item { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid #e9edf0; }
+	.result-item:last-child { border-bottom: 0; }
+	.result-topline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+	.result-name { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+	.result-distance { flex: 0 0 auto; color: #365f9d; font-size: 12px; font-weight: 700; }
+	.result-actions { display: flex; justify-content: flex-end; }
+	.results-empty { margin: 0; padding: 18px 16px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+	.route-panel { margin-top: 16px; }
+	.route-summary { margin: 0; padding: 13px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+	.route-steps { display: grid; gap: 0; margin: 0; padding: 0 16px; list-style: none; }
+	.route-step { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #e9edf0; font-size: 12px; line-height: 1.55; }
+	.route-step:last-child { border-bottom: 0; }
+	.route-step-number { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #eaf0fa; color: var(--navy); font-size: 11px; font-weight: 700; }
+	.route-step-distance { color: var(--muted); white-space: nowrap; }
+	.route-attribution { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+	.admin-location { margin-top: 16px; }
+	.admin-form { display: grid; grid-template-columns: minmax(200px, .8fr) minmax(0, 1fr) auto; align-items: end; gap: 12px; padding: 15px 16px; }
+	.admin-field { display: grid; gap: 6px; }
+	.admin-field label { font-size: 11px; font-weight: 700; }
+	.admin-field select, .admin-field input { width: 100%; min-height: 39px; padding: 8px 10px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; }
+	.admin-field input[readonly] { background: #f7f8f9; }
+	.admin-help { grid-column: 1 / -1; margin: -3px 0 0; color: var(--muted); font-size: 11px; }
+	.admin-help a { color: var(--navy); }
+	.form-message { margin: 0 0 16px; padding: 11px 14px; border: 1px solid #c5dcc8; background: #edf5ed; color: #315e39; font-size: 12px; }
+	.form-message.is-error { border-color: #efc9be; background: #fbefeb; color: #a83c30; }
+	@media (max-width: 940px) {
+		.shelter-search-body .site-header { flex-wrap: wrap; gap: 10px 18px; padding: 14px 20px; }
+		.shelter-search-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+		.search-layout { grid-template-columns: 1fr; }
+		.shelter-results { max-height: none; }
+		#shelterMap { height: 400px; }
+	}
+	@media (max-width: 560px) {
+		.shelter-search-body .site-header { padding: 12px 14px 8px; }
+		.shelter-search-body .site-nav { gap: 0; }
+		.shelter-search-body .site-nav a { padding: 9px 10px; white-space: nowrap; font-size: 12px; }
+		.shelter-search-body > main { padding: 26px 14px 40px; }
+		.search-intro { align-items: flex-start; flex-direction: column; gap: 8px; }
+		.search-intro h1 { font-size: 23px; }
+		.search-layout { grid-template-columns: minmax(0, 1fr); }
+		.search-panel-heading { padding: 12px 14px; }
+		.location-actions { padding: 11px 12px; }
+		.search-button { flex: 1 1 auto; }
+		#shelterMap { height: 340px; }
+		.admin-form { grid-template-columns: minmax(0, 1fr); padding: 13px; }
+		.admin-help { grid-column: auto; }
+		.route-step { grid-template-columns: 26px minmax(0, 1fr); }
+		.route-step-distance { grid-column: 2; }
+	}
+</style>
+{% endblock %}
 
-<p><a href="/all_shelters">全施設一覧</a></p>
+{% block content %}
+<div class="search-intro">
+	<div>
+		<p class="eyebrow">NEARBY SHELTERS</p>
+		<h1>近くの避難所</h1>
+	</div>
+	<p>現在地から距離の近い順に表示</p>
+</div>
+
+{% if message %}<p class="form-message" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="form-message is-error" role="alert">{{ error }}</p>{% endif %}
+
+<div class="search-layout">
+	<section class="search-panel" aria-labelledby="map-title">
+		<div class="search-panel-heading">
+			<div>
+				<h2 id="map-title">周辺マップ</h2>
+				<p>藤沢市周辺</p>
+			</div>
+		</div>
+		<div class="location-actions">
+			<button class="search-button primary" id="currentLocationButton" type="button">◎ 現在地から検索</button>
+			<button class="search-button" id="manualLocationButton" type="button">⌖ 地図で現在地を指定</button>
+		</div>
+		<div id="shelterMap" role="region" aria-label="現在地と周辺避難所の地図"></div>
+		<p id="locationStatus" class="map-status" role="status" aria-live="polite">現在地を取得すると、近い避難所を表示します。</p>
+	</section>
+
+	<section class="search-panel" aria-labelledby="results-title">
+		<div class="search-panel-heading">
+			<div>
+				<h2 id="results-title">近い避難所</h2>
+				<p id="resultCount">現在地の取得待ち</p>
+			</div>
+			<a href="/all_shelters">全施設</a>
+		</div>
+		<div class="shelter-results">
+			<p id="resultsEmpty" class="results-empty">現在地を取得すると、近い順に避難所を表示します。</p>
+			<ol id="shelterResults" class="result-list"></ol>
+		</div>
+	</section>
+</div>
+
+<section id="routePanel" class="search-panel route-panel" aria-labelledby="route-title" hidden>
+	<div class="search-panel-heading">
+		<div>
+			<h2 id="route-title">徒歩ルート</h2>
+			<p id="routeDestination"></p>
+		</div>
+	</div>
+	<p id="routeSummary" class="route-summary" role="status"></p>
+	<ol id="routeSteps" class="route-steps"></ol>
+	<p class="route-attribution">徒歩経路: OpenStreetMap contributors / FOSSGISルーター</p>
+</section>
+
+{% if logged_in %}
+<section class="search-panel admin-location" aria-labelledby="admin-location-title">
+	<div class="search-panel-heading">
+		<div>
+			<h2 id="admin-location-title">避難所の地図位置を登録</h2>
+			<p>座標のない施設は、施設位置を地図で指定して保存してください。</p>
+		</div>
+	</div>
+	<form class="admin-form" method="post">
+		<input type="hidden" name="action" value="set_location">
+		<div class="admin-field">
+			<label for="shelterId">避難所</label>
+			<select id="shelterId" name="shelter_id" required>
+				<option value="">施設を選択</option>
+				{% for shelter in shelters %}
+				<option value="{{ shelter.id }}">{{ shelter.name }}{% if shelter.latitude is defined and shelter.longitude is defined %}（位置登録済み）{% else %}（位置未登録）{% endif %}</option>
+				{% endfor %}
+			</select>
+		</div>
+		<div class="admin-field">
+			<label for="shelterCoordinates">選択した位置</label>
+			<input id="shelterCoordinates" type="text" value="地図上の位置を選択してください" readonly>
+			<input id="shelterLatitude" type="hidden" name="latitude" required>
+			<input id="shelterLongitude" type="hidden" name="longitude" required>
+		</div>
+		<button class="search-button primary" id="saveShelterLocationButton" type="submit" disabled>位置を保存</button>
+		<p class="admin-help">施設を選択し、「地図で避難所位置を指定」を押してから地図をクリックします。<button class="search-button" id="pickShelterLocationButton" type="button">地図で避難所位置を指定</button></p>
+	</form>
+</section>
+{% elif shelters|length %}
+<p id="unlocatedNotice" class="map-status" hidden></p>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	const map = L.map('shelterMap').setView([35.3390, 139.4903], 12);
+	L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		attribution: '© OpenStreetMap contributors',
+		referrerPolicy: 'strict-origin-when-cross-origin'
+	}).addTo(map);
+
+	const status = document.getElementById('locationStatus');
+	const results = document.getElementById('shelterResults');
+	const resultsEmpty = document.getElementById('resultsEmpty');
+	const resultCount = document.getElementById('resultCount');
+	const routePanel = document.getElementById('routePanel');
+	const shelters = new Map();
+	let currentPosition = null;
+	let currentMarker = null;
+	let routeLayer = null;
+	const shelterMarkers = L.layerGroup().addTo(map);
+	let selectingCurrentLocation = false;
+	let selectingShelterLocation = false;
+	let shelterPositionMarker = null;
+
+	function formatDistance(meters) {
+		return meters < 1000 ? `${meters} m` : `${(meters / 1000).toFixed(1)} km`;
+	}
+
+	function setCurrentPosition(latitude, longitude) {
+		currentPosition = { latitude, longitude };
+		selectingCurrentLocation = false;
+		document.getElementById('manualLocationButton').textContent = '⌖ 地図で現在地を指定';
+		if (currentMarker) currentMarker.setLatLng([latitude, longitude]);
+		else currentMarker = L.circleMarker([latitude, longitude], { radius: 8, color: '#fff', weight: 3, fillColor: '#2854a4', fillOpacity: 1 }).addTo(map);
+		currentMarker.bindPopup('現在地');
+		map.setView([latitude, longitude], 14);
+		searchNearbyShelters();
+	}
+
+	function renderShelters(data) {
+		results.replaceChildren();
+		shelters.clear();
+		const locatedShelters = data.shelters || [];
+		resultCount.textContent = `${locatedShelters.length} 件`;
+		resultsEmpty.hidden = locatedShelters.length > 0;
+		shelterMarkers.clearLayers();
+
+		if (!locatedShelters.length) {
+			resultsEmpty.textContent = data.unlocated_count
+				? `位置情報が登録された避難所がありません。位置未登録: ${data.unlocated_count} 件`
+				: '近くに位置登録済みの避難所がありません。';
+		}
+
+		locatedShelters.forEach((shelter, index) => {
+			shelters.set(String(shelter.id), shelter);
+			const marker = L.marker([shelter.latitude, shelter.longitude]).addTo(shelterMarkers);
+			const popup = document.createElement('strong');
+			popup.textContent = shelter.name;
+			marker.bindPopup(popup);
+
+			const item = document.createElement('li');
+			item.className = 'result-item';
+			const topLine = document.createElement('div');
+			topLine.className = 'result-topline';
+			const name = document.createElement('h3');
+			name.className = 'result-name';
+			name.textContent = `${index + 1}. ${shelter.name}`;
+			const distance = document.createElement('span');
+			distance.className = 'result-distance';
+			distance.textContent = formatDistance(shelter.distance_m);
+			topLine.append(name, distance);
+			const actions = document.createElement('div');
+			actions.className = 'result-actions';
+			const routeButton = document.createElement('button');
+			routeButton.className = 'search-button';
+			routeButton.type = 'button';
+			routeButton.textContent = '徒歩ルート';
+			routeButton.addEventListener('click', () => showRoute(shelter));
+			actions.appendChild(routeButton);
+			item.append(topLine, actions);
+			results.appendChild(item);
+		});
+
+		if (data.unlocated_count) {
+			const message = `${data.unlocated_count} 件の避難所は地図位置が未登録のため、距離順の対象外です。`;
+			status.textContent = message;
+			status.classList.toggle('is-error', locatedShelters.length === 0);
+		}
+	}
+
+	async function searchNearbyShelters() {
+		if (!currentPosition) return;
+		status.textContent = '近くの避難所を検索しています。';
+		status.classList.remove('is-error');
+		try {
+			const query = new URLSearchParams(currentPosition);
+			const response = await fetch(`/api/shelters/nearby?${query}`);
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.error || '避難所を検索できません。');
+			renderShelters(data);
+			if (data.shelters.length) status.textContent = '距離の近い順に表示しています。';
+		} catch (error) {
+			status.textContent = error.message;
+			status.classList.add('is-error');
+		}
+	}
+
+	function formatRouteInstruction(step) {
+		const maneuverLabels = {
+			depart: '出発', turn: '曲がる', 'end of road': '突き当たりを曲がる',
+			continue: '直進', merge: '合流', fork: '分岐', 'off ramp': 'ランプを降りる',
+			'on ramp': 'ランプへ進む', roundabout: 'ロータリーを進む',
+			'exit roundabout': 'ロータリーを出る', arrive: '到着'
+		};
+		const modifierLabels = {
+			left: '左', right: '右', straight: '直進', 'slight left': 'やや左',
+			'slight right': 'やや右', 'sharp left': '大きく左', 'sharp right': '大きく右',
+			uturn: 'Uターン'
+		};
+		const instruction = maneuverLabels[step.type] || '進む';
+		const direction = modifierLabels[step.modifier] || '';
+		const road = step.name ? `（${step.name}）` : '';
+		return `${instruction}${direction ? `・${direction}` : ''}${road}`;
+	}
+
+	async function showRoute(shelter) {
+		if (!currentPosition) return;
+		routePanel.hidden = false;
+		document.getElementById('routeDestination').textContent = shelter.name;
+		document.getElementById('routeSummary').textContent = '徒歩ルートを取得しています。';
+		document.getElementById('routeSteps').replaceChildren();
+		routePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		try {
+			const query = new URLSearchParams({
+				origin_lat: currentPosition.latitude,
+				origin_lon: currentPosition.longitude,
+				destination_lat: shelter.latitude,
+				destination_lon: shelter.longitude
+			});
+			const response = await fetch(`/api/shelters/route?${query}`);
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.error || '徒歩ルートを取得できません。');
+
+			if (routeLayer) map.removeLayer(routeLayer);
+			routeLayer = L.geoJSON(data.geometry, { style: { color: '#c84938', weight: 5, opacity: 0.85 } }).addTo(map);
+			map.fitBounds(routeLayer.getBounds().pad(0.15));
+			const minutes = Math.max(1, Math.round(data.duration_s / 60));
+			document.getElementById('routeSummary').textContent = `${formatDistance(data.distance_m)}・徒歩約${minutes}分`;
+
+			const steps = document.getElementById('routeSteps');
+			data.steps.forEach((step, index) => {
+				const item = document.createElement('li');
+				item.className = 'route-step';
+				const number = document.createElement('span');
+				number.className = 'route-step-number';
+				number.textContent = index + 1;
+				const instruction = document.createElement('span');
+				instruction.textContent = formatRouteInstruction(step);
+				const distance = document.createElement('span');
+				distance.className = 'route-step-distance';
+				distance.textContent = step.distance_m ? formatDistance(step.distance_m) : '';
+				item.append(number, instruction, distance);
+				steps.appendChild(item);
+			});
+		} catch (error) {
+			document.getElementById('routeSummary').textContent = error.message;
+		}
+	}
+
+	document.getElementById('currentLocationButton').addEventListener('click', () => {
+		if (!navigator.geolocation) {
+			status.textContent = 'このブラウザーでは位置情報を利用できません。地図から現在地を指定してください。';
+			status.classList.add('is-error');
+			return;
+		}
+		status.textContent = '現在地を取得しています。';
+		status.classList.remove('is-error');
+		navigator.geolocation.getCurrentPosition(
+			position => setCurrentPosition(position.coords.latitude, position.coords.longitude),
+			() => {
+				status.textContent = '現在地を取得できません。地図から現在地を指定してください。';
+				status.classList.add('is-error');
+			},
+			{ enableHighAccuracy: true, timeout: 12000, maximumAge: 300000 }
+		);
+	});
+
+	document.getElementById('manualLocationButton').addEventListener('click', event => {
+		selectingCurrentLocation = !selectingCurrentLocation;
+		selectingShelterLocation = false;
+		event.currentTarget.textContent = selectingCurrentLocation ? '現在地を地図で選択中' : '⌖ 地図で現在地を指定';
+		status.textContent = selectingCurrentLocation ? '地図をクリックして現在地を指定してください。' : '現在地の指定をキャンセルしました。';
+	});
+
+	map.on('click', event => {
+		if (selectingShelterLocation) {
+			document.getElementById('shelterLatitude').value = event.latlng.lat.toFixed(6);
+			document.getElementById('shelterLongitude').value = event.latlng.lng.toFixed(6);
+			document.getElementById('shelterCoordinates').value = `${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
+			document.getElementById('saveShelterLocationButton').disabled = false;
+			if (shelterPositionMarker) shelterPositionMarker.setLatLng(event.latlng);
+			else shelterPositionMarker = L.marker(event.latlng).addTo(map);
+			selectingShelterLocation = false;
+			status.textContent = '避難所位置を選択しました。管理者フォームから保存できます。';
+		} else if (selectingCurrentLocation) {
+			setCurrentPosition(event.latlng.lat, event.latlng.lng);
+		}
+	});
+
+	const pickShelterButton = document.getElementById('pickShelterLocationButton');
+	if (pickShelterButton) {
+		pickShelterButton.addEventListener('click', () => {
+			if (!document.getElementById('shelterId').value) {
+				status.textContent = '位置を登録する避難所を先に選択してください。';
+				status.classList.add('is-error');
+				return;
+			}
+			selectingCurrentLocation = false;
+			selectingShelterLocation = true;
+			status.textContent = '地図をクリックして避難所の位置を指定してください。';
+			status.classList.remove('is-error');
+		});
+	}
+});
+</script>
 {% endblock %}

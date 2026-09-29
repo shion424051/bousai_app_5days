@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}避難所を追加 | 防災アプリ{% endblock %}
+{% block body_class %}shelter-add-body{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+    .shelter-add-body {
+        --ink: #263746;
+        --muted: #647381;
+        --line: #dce3e8;
+        --paper: #fff;
+        --canvas: #f7f8f9;
+        --navy: #2854a4;
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    .shelter-add-body *, .shelter-add-body *::before, .shelter-add-body *::after { box-sizing: border-box; }
+    .shelter-add-body .site-header { display: flex; align-items: center; gap: 24px; min-height: 82px; padding: 14px max(24px, calc((100vw - 1320px) / 2)); background: var(--navy); color: #fff; }
+    .shelter-add-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+    .shelter-add-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+    .shelter-add-body .brand-name { display: grid; gap: 2px; }
+    .shelter-add-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+    .shelter-add-body .brand-name small { color: #d0dcee; font-size: 9px; }
+    .shelter-add-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 4px; }
+    .shelter-add-body .site-nav a, .shelter-add-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 12px; }
+    .shelter-add-body .site-nav a { padding: 9px 10px; border-bottom: 2px solid transparent; }
+    .shelter-add-body .site-nav a[href="/shelter_add"] { border-color: #acd2de; color: #fff; }
+    .shelter-add-body .site-nav a:hover, .shelter-add-body .account-nav a:hover { color: #acd2de; }
+    .shelter-add-body .account-nav { display: flex; align-items: center; gap: 10px; margin-left: auto; color: #d0dcee; font-size: 11px; }
+    .shelter-add-body > main { width: min(1220px, 100%); margin: 0 auto; padding: 34px 26px 56px; }
+    .add-intro { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+    .add-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+    .add-intro h1 { margin: 0; font-size: 27px; line-height: 1.35; }
+    .add-intro p:last-child { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+    .form-message { margin: 0 0 16px; padding: 11px 14px; border: 1px solid #c5dcc8; background: #edf5ed; color: #315e39; font-size: 12px; }
+    .form-message.is-error { border-color: #efc9be; background: #fbefeb; color: #a83c30; }
+    .add-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+    .add-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+    .add-panel-heading { min-height: 64px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
+    .add-panel-heading h2 { margin: 0; font-size: 15px; }
+    .add-panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    #shelterLocationMap { width: 100%; height: 510px; background: #e5ece4; cursor: crosshair; }
+    .map-help { margin: 0; padding: 12px 15px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .coordinate-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 15px 15px; }
+    .coordinate-fields label, .form-field label { display: grid; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 700; }
+    .shelter-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 17px; }
+    .form-field { display: grid; align-content: start; gap: 6px; min-width: 0; }
+    .form-field.wide { grid-column: 1 / -1; }
+    .form-field input, .form-field select, .form-field textarea, .coordinate-fields input { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; }
+    .form-field textarea { min-height: 96px; resize: vertical; line-height: 1.6; }
+    .form-field input:focus-visible, .form-field select:focus-visible, .form-field textarea:focus-visible, .coordinate-fields input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
+    .field-hint { margin: 0; color: var(--muted); font-size: 10px; }
+    .feature-options { display: flex; flex-wrap: wrap; gap: 8px 15px; }
+    .feature-options label { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: 11px; }
+    .feature-options input { width: 16px; height: 16px; min-height: 0; margin: 0; accent-color: var(--navy); }
+    .submit-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 3px; }
+    .submit-row a { color: var(--navy); font-size: 12px; }
+    .submit-button { min-height: 43px; padding: 10px 15px; border: 0; border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; }
+    .submit-button:hover { background: #1f4389; }
+    @media (max-width: 960px) {
+        .shelter-add-body .site-header { flex-wrap: wrap; gap: 10px 16px; padding: 13px 18px; }
+        .shelter-add-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+        .add-layout { grid-template-columns: 1fr; }
+        #shelterLocationMap { height: 370px; }
+    }
+    @media (max-width: 560px) {
+        .shelter-add-body .site-header { padding: 12px 14px 8px; }
+        .shelter-add-body .site-nav { gap: 0; }
+        .shelter-add-body .site-nav a { padding: 9px 8px; white-space: nowrap; font-size: 11px; }
+        .shelter-add-body > main { padding: 25px 14px 38px; }
+        .add-intro { align-items: flex-start; flex-direction: column; gap: 7px; }
+        .add-intro h1 { font-size: 23px; }
+        #shelterLocationMap { height: 320px; }
+        .shelter-fields { gap: 12px; padding: 13px; }
+        .coordinate-fields { padding: 0 12px 12px; }
+        .submit-row { align-items: stretch; flex-direction: column-reverse; }
+        .submit-button { width: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="add-intro">
+    <div>
+        <p class="eyebrow">SHELTER DIRECTORY</p>
+        <h1>避難所を追加</h1>
+    </div>
+    <p>施設情報は避難所検索・全施設一覧に反映されます</p>
+</div>
+
+{% if message %}<p class="form-message" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="form-message is-error" role="alert">{{ error }}</p>{% endif %}
+
+<form method="post" id="shelterAddForm">
+    <div class="add-layout">
+        <section class="add-panel" aria-labelledby="location-heading">
+            <div class="add-panel-heading">
+                <h2 id="location-heading">施設の位置 <span aria-hidden="true">*</span></h2>
+                <p id="coordinateStatus" aria-live="polite">地図をクリックして施設位置を指定</p>
+            </div>
+            <div id="shelterLocationMap" role="region" aria-label="避難所の位置を指定する地図"></div>
+            <p class="map-help">正確な位置を地図上で選択してください。位置情報は近隣検索と経路案内に使われます。</p>
+            <div class="coordinate-fields">
+                <label>緯度
+                    <input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="{{ form_data.get('latitude', '') }}" required>
+                </label>
+                <label>経度
+                    <input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="{{ form_data.get('longitude', '') }}" required>
+                </label>
+            </div>
+        </section>
+
+        <section class="add-panel" aria-labelledby="details-heading">
+            <div class="add-panel-heading">
+                <h2 id="details-heading">施設情報</h2>
+                <p>名称・地区・住所・施設種別は必須</p>
+            </div>
+            <div class="shelter-fields">
+                <div class="form-field">
+                    <label for="name">施設名 <span aria-hidden="true">*</span></label>
+                    <input id="name" name="name" value="{{ form_data.get('name', '') }}" maxlength="100" autocomplete="organization" required>
+                </div>
+                <div class="form-field">
+                    <label for="category">施設種別 <span aria-hidden="true">*</span></label>
+                    <select id="category" name="category" required>
+                        <option value="">選択してください</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" {% if form_data.get('category') == category %}selected{% endif %}>{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="district">地区 <span aria-hidden="true">*</span></label>
+                    <input id="district" name="district" value="{{ form_data.get('district', '') }}" maxlength="100" required>
+                </div>
+                <div class="form-field">
+                    <label for="capacity">収容人数</label>
+                    <input id="capacity" name="capacity" type="number" min="0" max="1000000" step="1" value="{{ form_data.get('capacity', '') }}">
+                </div>
+                <div class="form-field wide">
+                    <label for="address">住所 <span aria-hidden="true">*</span></label>
+                    <input id="address" name="address" value="{{ form_data.get('address', '') }}" maxlength="300" autocomplete="street-address" required>
+                </div>
+                <div class="form-field">
+                    <label for="phone">電話番号</label>
+                    <input id="phone" name="phone" type="tel" value="{{ form_data.get('phone', '') }}" maxlength="50" autocomplete="tel">
+                </div>
+                <div class="form-field">
+                    <label for="hours">開設時間・利用時間</label>
+                    <input id="hours" name="hours" value="{{ form_data.get('hours', '') }}" maxlength="100" placeholder="例: 24時間">
+                </div>
+                <fieldset class="form-field wide" style="border:0;padding:0;margin:0">
+                    <legend class="field-hint" style="margin-bottom:8px;color:var(--ink);font-weight:700">設備・対応</legend>
+                    <div class="feature-options">
+                        {% for value, label in features.items() %}
+                        <label><input type="checkbox" name="features" value="{{ value }}" {% if value in selected_features|default([]) %}checked{% endif %}>{{ label }}</label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <div class="form-field wide">
+                    <label for="description">施設の説明・備考</label>
+                    <textarea id="description" name="description" maxlength="2000" rows="4">{{ form_data.get('description', '') }}</textarea>
+                </div>
+                <div class="submit-row">
+                    <a href="/all_shelters">全施設一覧を見る</a>
+                    <button class="submit-button" type="submit">避難所を登録</button>
+                </div>
+            </div>
+        </section>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const map = L.map('shelterLocationMap').setView([35.3390, 139.4903], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        referrerPolicy: 'strict-origin-when-cross-origin'
+    }).addTo(map);
+
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const coordinateStatus = document.getElementById('coordinateStatus');
+    let marker = null;
+
+    function setPosition(latitude, longitude) {
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+            || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
+        latitudeInput.value = latitude.toFixed(6);
+        longitudeInput.value = longitude.toFixed(6);
+        coordinateStatus.textContent = `${latitudeInput.value}, ${longitudeInput.value}`;
+        if (marker) marker.setLatLng([latitude, longitude]);
+        else marker = L.marker([latitude, longitude]).addTo(map);
+    }
+
+    map.on('click', event => setPosition(event.latlng.lat, event.latlng.lng));
+    [latitudeInput, longitudeInput].forEach(input => input.addEventListener('change', () => {
+        setPosition(Number(latitudeInput.value), Number(longitudeInput.value));
+    }));
+    if (latitudeInput.value && longitudeInput.value) {
+        setPosition(Number(latitudeInput.value), Number(longitudeInput.value));
+        map.setView([Number(latitudeInput.value), Number(longitudeInput.value)], 15);
+    }
+});
+</script>
+{% endblock %}

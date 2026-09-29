@@ -10,5 +10,23 @@
   {
     "id": 5,
     "name": "鵠洋小学校"
+  },
+  {
+    "id": 6,
+    "name": "公園"
+  },
+  {
+    "id": 7,
+    "name": "公園",
+    "category": "指定緊急避難場所",
+    "district": "青森",
+    "address": "青森",
+    "capacity": null,
+    "phone": "",
+    "hours": "",
+    "features": [],
+    "description": "",
+    "latitude": 40.792109,
+    "longitude": 140.674211
   }
 ]

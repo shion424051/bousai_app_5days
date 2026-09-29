@@ -1,25 +1,176 @@
 {% extends "base.html" %}
 
-{% block title %}指示・発信ボード - 防災アプリ{% endblock %}
+{% block title %}住民への発信 | 防災アプリ{% endblock %}
+{% block body_class %}board-body{% endblock %}
+{% block head %}
+<style>
+  .board-body {
+    --ink: #263746;
+    --muted: #647381;
+    --line: #dce3e8;
+    --paper: #fff;
+    --canvas: #f7f8f9;
+    --navy: #2854a4;
+    --alert: #bb4738;
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  }
+  .board-body *, .board-body *::before, .board-body *::after { box-sizing: border-box; }
+  .board-body .site-header {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    min-height: 82px;
+    padding: 14px max(28px, calc((100vw - 1320px) / 2));
+    background: var(--navy);
+    color: #fff;
+  }
+  .board-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+  .board-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+  .board-body .brand-name { display: grid; gap: 2px; }
+  .board-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+  .board-body .brand-name small { color: #d0dcee; font-size: 9px; }
+  .board-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 6px; }
+  .board-body .site-nav a, .board-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 13px; }
+  .board-body .site-nav a { padding: 10px 12px; border-bottom: 2px solid transparent; }
+  .board-body .site-nav a[href="/board"] { border-color: #acd2de; color: #fff; }
+  .board-body .site-nav a:hover, .board-body .account-nav a:hover { color: #acd2de; }
+  .board-body .account-nav { display: flex; align-items: center; gap: 12px; margin-left: auto; color: #d0dcee; font-size: 11px; }
+  .board-body > main { width: min(1200px, 100%); margin: 0 auto; padding: 38px 28px 60px; }
+  .board-intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+  .board-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+  .board-intro h1 { margin: 0; font-size: 27px; line-height: 1.35; }
+  .board-intro p:last-child { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+  .board-message { margin: 0 0 18px; padding: 12px 15px; border: 1px solid #c5dcc8; background: #edf5ed; color: #315e39; font-size: 13px; }
+  .board-message.is-error { border-color: #efc9be; background: #fbefeb; color: #a83c30; }
+  .board-grid { display: grid; grid-template-columns: minmax(300px, .78fr) minmax(0, 1.22fr); gap: 18px; align-items: start; }
+  .board-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+  .board-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .board-panel-heading h2 { margin: 0; font-size: 16px; }
+  .board-panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+  .publish-form { display: grid; gap: 15px; padding: 18px; }
+  .board-field { display: grid; gap: 7px; }
+  .board-field label { font-size: 12px; font-weight: 700; }
+  .board-field textarea, .board-field input { width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #cbd6de; border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; }
+  .board-field textarea { min-height: 136px; resize: vertical; line-height: 1.6; }
+  .board-field textarea:focus-visible, .board-field input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
+  .board-button { min-height: 43px; padding: 10px 14px; border: 0; border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; }
+  .board-button:hover { background: #1f4389; }
+  .board-button.resolve { min-height: 34px; padding: 7px 10px; border: 1px solid #d9a49b; background: #fff; color: #a83c30; font-size: 11px; }
+  .board-button.resolve:hover { background: #fbefeb; }
+  .notice-list { margin: 0; padding: 0 18px; list-style: none; }
+  .notice-item { display: grid; gap: 9px; padding: 16px 0; border-bottom: 1px solid #e9edf0; }
+  .notice-item:last-child { border-bottom: 0; }
+  .notice-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--muted); font-size: 11px; }
+  .notice-status { padding: 3px 7px; background: #fbefeb; color: var(--alert); font-size: 10px; font-weight: 700; }
+  .notice-content { margin: 0; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+  .notice-shelter { margin: -3px 0 0; color: var(--muted); font-size: 12px; }
+  .notice-actions { display: flex; justify-content: flex-end; }
+  .empty-notices { margin: 0; padding: 24px 18px; color: var(--muted); font-size: 13px; }
+  .history { margin-top: 18px; border-top: 1px solid var(--line); }
+  .history summary { padding: 14px 18px; color: var(--muted); cursor: pointer; font-size: 12px; }
+  .history .notice-status { background: #f0f2f4; color: #6b747d; }
+  @media (max-width: 940px) {
+    .board-body .site-header { flex-wrap: wrap; gap: 10px 18px; padding: 14px 20px; }
+    .board-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+    .board-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .board-body .site-header { padding: 12px 14px 8px; }
+    .board-body .site-nav { gap: 0; }
+    .board-body .site-nav a { padding: 9px 10px; white-space: nowrap; font-size: 12px; }
+    .board-body > main { padding: 27px 14px 40px; }
+    .board-intro { align-items: flex-start; flex-direction: column; gap: 8px; margin-bottom: 17px; }
+    .board-intro h1 { font-size: 23px; }
+    .board-panel-heading { padding: 12px 14px; }
+    .publish-form { padding: 14px; }
+    .notice-list { padding: 0 14px; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2>発信ボード</h2>
-<p>住民向けの発信を登録・確認できます。</p>
+<div class="board-intro">
+  <div>
+    <p class="eyebrow">PUBLIC SAFETY MESSAGES</p>
+    <h1>住民への発信</h1>
+  </div>
+  <p>公開中の発信はホーム画面の上部に表示されます</p>
+</div>
 
-<!-- 発信一覧 -->
-<h3>発信一覧</h3>
-{% if instructions %}
-<table border="1" cellpadding="5">
-  <tr>
-    <th>内容</th>
-  </tr>
-  {% for inst in instructions %}
-  <tr>
-    <td>{{ inst.content }}{% if inst.shelter %}（避難先: {{ inst.shelter }}）{% endif %}</td>
-  </tr>
-  {% endfor %}
-</table>
-{% else %}
-<p>登録されている指示はありません。</p>
-{% endif %}
+{% if message %}<p class="board-message" role="status">{{ message }}</p>{% endif %}
+{% if error %}<p class="board-message is-error" role="alert">{{ error }}</p>{% endif %}
+
+<div class="board-grid">
+  <section class="board-panel" aria-labelledby="publish-title">
+    <div class="board-panel-heading">
+      <div>
+        <h2 id="publish-title">新しい発信</h2>
+        <p>登録するとホーム画面にすぐ反映されます</p>
+      </div>
+    </div>
+    <form class="publish-form" method="post">
+      <input type="hidden" name="action" value="publish">
+      <div class="board-field">
+        <label for="content">発信内容 <span aria-hidden="true">*</span></label>
+        <textarea id="content" name="content" maxlength="1000" rows="5" required>{{ form_data.get('content', '') }}</textarea>
+      </div>
+      <div class="board-field">
+        <label for="shelter">避難先（任意）</label>
+        <input type="text" id="shelter" name="shelter" value="{{ form_data.get('shelter', '') }}" maxlength="100">
+      </div>
+      <button class="board-button" type="submit">住民へ発信</button>
+    </form>
+  </section>
+
+  <section class="board-panel" aria-labelledby="active-title">
+    <div class="board-panel-heading">
+      <div>
+        <h2 id="active-title">公開中</h2>
+        <p>{{ active_instructions|length }} 件</p>
+      </div>
+    </div>
+    {% if active_instructions %}
+    <ol class="notice-list">
+      {% for inst in active_instructions %}
+      <li class="notice-item">
+        <div class="notice-meta">
+          <span class="notice-status">発信中</span>
+          <span>{{ inst.created_at or '日時不明' }}</span>
+        </div>
+        <p class="notice-content">{{ inst.content }}</p>
+        {% if inst.shelter %}<p class="notice-shelter">避難先: {{ inst.shelter }}</p>{% endif %}
+        <form class="notice-actions" method="post">
+          <input type="hidden" name="action" value="resolve">
+          <input type="hidden" name="instruction_id" value="{{ inst.id }}">
+          <button class="board-button resolve" type="submit">発信を解除</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="empty-notices">現在、公開中の発信はありません。</p>
+    {% endif %}
+
+    {% if resolved_instructions %}
+    <details class="history">
+      <summary>解除済みの発信（{{ resolved_instructions|length }}件）</summary>
+      <ol class="notice-list">
+        {% for inst in resolved_instructions %}
+        <li class="notice-item">
+          <div class="notice-meta">
+            <span class="notice-status">{{ inst.status }}</span>
+            <span>{{ inst.updated_at or inst.created_at or '日時不明' }}</span>
+          </div>
+          <p class="notice-content">{{ inst.content }}</p>
+          {% if inst.shelter %}<p class="notice-shelter">避難先: {{ inst.shelter }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </details>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}

@@ -1,20 +1,100 @@
 {% extends "base.html" %}
 
+{% block title %}全施設一覧 | 防災アプリ{% endblock %}
+{% block body_class %}facility-list-body{% endblock %}
+{% block head %}
+<style>
+    .facility-list-body { --ink: #263746; --muted: #647381; --line: #dce3e8; --navy: #2854a4; margin: 0; background: #f7f8f9; color: var(--ink); font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif; }
+    .facility-list-body *, .facility-list-body *::before, .facility-list-body *::after { box-sizing: border-box; }
+    .facility-list-body .site-header { display: flex; align-items: center; gap: 22px; min-height: 78px; padding: 13px max(24px, calc((100vw - 1320px) / 2)); background: var(--navy); color: #fff; }
+    .facility-list-body .brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+    .facility-list-body .brand-mark { display: grid; width: 40px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 20px; font-weight: 800; }
+    .facility-list-body .brand-name { display: grid; gap: 2px; }
+    .facility-list-body .brand-name strong { font-size: 18px; }
+    .facility-list-body .brand-name small { color: #d0dcee; font-size: 9px; }
+    .facility-list-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 3px; }
+    .facility-list-body .site-nav a, .facility-list-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 12px; }
+    .facility-list-body .site-nav a { padding: 9px 10px; }
+    .facility-list-body .site-nav a:hover, .facility-list-body .account-nav a:hover { color: #acd2de; }
+    .facility-list-body .account-nav { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 11px; }
+    .facility-list-body > main { width: min(1120px, 100%); margin: 0 auto; padding: 34px 26px 56px; }
+    .facility-intro { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+    .facility-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+    .facility-intro h1 { margin: 0; font-size: 26px; }
+    .facility-intro p:last-child { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+    .facility-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    .facility-actions a { color: var(--navy); font-size: 12px; }
+    .facility-count { margin: 0; padding: 12px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .facility-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .facility-item { display: grid; gap: 12px; padding: 19px 0; border-bottom: 1px solid var(--line); }
+    .facility-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .facility-title h2 { margin: 0; font-size: 17px; }
+    .facility-category { flex: 0 0 auto; padding: 4px 8px; background: #eaf0fa; color: #315586; font-size: 10px; }
+    .facility-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+    .facility-details div { min-width: 0; }
+    .facility-details dt { margin-bottom: 3px; color: var(--muted); font-size: 10px; }
+    .facility-details dd { margin: 0; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+    .facility-description { margin: 0; color: #425463; font-size: 12px; line-height: 1.7; white-space: pre-line; }
+    .facility-features { display: flex; flex-wrap: wrap; gap: 6px 12px; color: #315e39; font-size: 11px; }
+    .facility-empty { padding: 22px 0; color: var(--muted); font-size: 13px; }
+    @media (max-width: 900px) {
+        .facility-list-body .site-header { flex-wrap: wrap; gap: 9px 14px; padding: 13px 18px; }
+        .facility-list-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+    }
+    @media (max-width: 560px) {
+        .facility-list-body .site-header { padding: 12px 14px 8px; }
+        .facility-list-body .site-nav a { padding: 8px; white-space: nowrap; font-size: 11px; }
+        .facility-list-body > main { padding: 25px 14px 40px; }
+        .facility-intro { align-items: flex-start; flex-direction: column; gap: 7px; }
+        .facility-intro h1 { font-size: 23px; }
+        .facility-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .facility-title h2 { font-size: 15px; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>検索結果</h2>
+<div class="facility-intro">
+    <div>
+        <p class="eyebrow">SHELTER DIRECTORY</p>
+        <h1>全施設一覧</h1>
+    </div>
+    <p>施設の基本情報と受け入れ設備</p>
+</div>
+
+<nav class="facility-actions" aria-label="避難所の操作">
+    <a href="/shelter_search">現在地から近い避難所を探す</a>
+    <a href="/shelter_add">避難所を追加する</a>
+</nav>
 
 {% if results %}
-  <ul>
+  <p class="facility-count">{{ results|length }} 施設</p>
+  <ul class="facility-list">
     {% for shelter in results %}
-    <li>{{ shelter.name }}</li>
+    <li class="facility-item">
+        <div class="facility-title">
+            <h2>{{ shelter.name }}</h2>
+            <span class="facility-category">{{ shelter.category or '施設種別未登録' }}</span>
+        </div>
+        <dl class="facility-details">
+            <div><dt>地区</dt><dd>{{ shelter.district or '未登録' }}</dd></div>
+            <div><dt>住所</dt><dd>{{ shelter.address or '未登録' }}</dd></div>
+            <div><dt>収容人数</dt><dd>{% if shelter.capacity is defined and shelter.capacity is not none %}{{ shelter.capacity }} 人{% else %}未登録{% endif %}</dd></div>
+            <div><dt>電話番号</dt><dd>{{ shelter.phone or '未登録' }}</dd></div>
+            <div><dt>開設・利用時間</dt><dd>{{ shelter.hours or '未登録' }}</dd></div>
+            <div><dt>地図位置</dt><dd>{% if shelter.latitude is defined and shelter.longitude is defined %}登録済み{% else %}未登録{% endif %}</dd></div>
+        </dl>
+        {% if shelter.features %}
+        <div class="facility-features">
+            {% for feature in shelter.features %}<span>{{ {'barrier_free': 'バリアフリー', 'pets': 'ペット同行可', 'supplies': '備蓄あり'}.get(feature, feature) }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if shelter.description %}<p class="facility-description">{{ shelter.description }}</p>{% endif %}
+    </li>
     {% endfor %}
   </ul>
 {% else %}
-  <p>該当する避難所が見つかりませんでした</p>
+  <p class="facility-empty">該当する避難所が見つかりませんでした。</p>
 {% endif %}
 
-<p>
-  <a href="/shelter_search">検索画面に戻る</a> |
-  <a href="/">トップページへ戻る</a>
-</p>
 {% endblock %}

@@ -1,23 +1,233 @@
 {% extends "base.html" %}
 
+{% block title %}危険場所登録 | 防災アプリ{% endblock %}
+{% block body_class %}danger-register-body{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+    .danger-register-body {
+        --ink: #263746;
+        --muted: #647381;
+        --line: #dce3e8;
+        --paper: #fff;
+        --canvas: #f7f8f9;
+        --navy: #2854a4;
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    .danger-register-body *, .danger-register-body *::before, .danger-register-body *::after { box-sizing: border-box; }
+    .danger-register-body .site-header {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        min-height: 82px;
+        padding: 14px max(28px, calc((100vw - 1320px) / 2));
+        background: var(--navy);
+        color: #fff;
+    }
+    .danger-register-body .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; flex: 0 0 auto; }
+    .danger-register-body .brand-mark { display: grid; width: 42px; aspect-ratio: 1; place-items: center; border: 1px solid #c8d9f5; color: #c8d9f5; font-size: 21px; font-weight: 800; }
+    .danger-register-body .brand-name { display: grid; gap: 2px; }
+    .danger-register-body .brand-name strong { font-size: 19px; line-height: 1.3; }
+    .danger-register-body .brand-name small { color: #d0dcee; font-size: 9px; }
+    .danger-register-body .site-nav { display: flex; align-items: center; justify-content: center; flex: 1; gap: 6px; }
+    .danger-register-body .site-nav a, .danger-register-body .account-nav a { color: #eaf0fa; text-decoration: none; font-size: 13px; }
+    .danger-register-body .site-nav a { padding: 10px 12px; border-bottom: 2px solid transparent; }
+    .danger-register-body .site-nav a[href="/shelter_register"] { border-color: #acd2de; color: #fff; }
+    .danger-register-body .site-nav a:hover, .danger-register-body .account-nav a:hover { color: #acd2de; }
+    .danger-register-body .account-nav { display: flex; align-items: center; gap: 12px; margin-left: auto; color: #d0dcee; font-size: 11px; }
+    .danger-register-body > main { width: min(1160px, 100%); margin: 0 auto; padding: 38px 28px 60px; }
+    .register-intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .register-intro .eyebrow { margin: 0 0 7px; color: #647e9d; font-size: 10px; font-weight: 700; }
+    .register-intro h1 { margin: 0; font-size: 27px; line-height: 1.35; }
+    .required-note { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+    .form-notice { margin: 0 0 18px; padding: 12px 15px; border: 1px solid #c5dcc8; background: #edf5ed; color: #315e39; font-size: 13px; }
+    .form-notice.is-error { border-color: #efc9be; background: #fbefeb; color: #a83c30; }
+    .register-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr); gap: 18px; align-items: start; }
+    .register-panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+    .register-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .register-panel-heading h2 { margin: 0; font-size: 16px; }
+    .register-panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    #registrationMap { width: 100%; height: 440px; background: #e5ece4; cursor: crosshair; }
+    .coordinates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px 18px 18px; }
+    .form-fields { display: grid; gap: 16px; padding: 19px; }
+    .form-field { display: grid; gap: 7px; min-width: 0; }
+    .form-field label, .coordinates label { color: var(--ink); font-size: 12px; font-weight: 700; }
+    .form-field input, .form-field select, .form-field textarea, .coordinates input {
+        width: 100%;
+        min-height: 42px;
+        padding: 10px 11px;
+        border: 1px solid #cbd6de;
+        border-radius: 3px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+    }
+    .form-field textarea { min-height: 112px; resize: vertical; line-height: 1.6; }
+    .form-field input:focus-visible, .form-field select:focus-visible, .form-field textarea:focus-visible, .coordinates input:focus-visible { outline: 2px solid #6d94d1; outline-offset: 1px; }
+    .field-hint { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .image-preview { display: grid; min-height: 122px; place-items: center; overflow: hidden; border: 1px dashed #cbd6de; background: #f7f8f9; color: var(--muted); font-size: 12px; }
+    .image-preview img { display: block; width: 100%; max-height: 230px; object-fit: contain; }
+    .image-preview img[hidden], .image-placeholder[hidden] { display: none; }
+    .submit-button { min-height: 46px; padding: 11px 16px; border: 0; border-radius: 3px; background: var(--navy); color: #fff; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; }
+    .submit-button:hover { background: #1f4389; }
+    @media (max-width: 940px) {
+        .danger-register-body .site-header { flex-wrap: wrap; gap: 10px 18px; padding: 14px 20px; }
+        .danger-register-body .site-nav { order: 3; justify-content: flex-start; width: 100%; flex-basis: 100%; overflow-x: auto; }
+        .register-grid { grid-template-columns: 1fr; }
+        #registrationMap { height: 380px; }
+    }
+    @media (max-width: 560px) {
+        .danger-register-body .site-header { padding: 12px 14px 8px; }
+        .danger-register-body .site-nav { gap: 0; }
+        .danger-register-body .site-nav a { padding: 9px 10px; white-space: nowrap; font-size: 12px; }
+        .danger-register-body > main { padding: 27px 14px 40px; }
+        .register-intro { align-items: flex-start; flex-direction: column; gap: 8px; margin-bottom: 17px; }
+        .register-intro h1 { font-size: 23px; }
+        .register-panel-heading { padding: 12px 14px; }
+        #registrationMap { height: 330px; }
+        .coordinates { gap: 8px; padding: 12px 14px 14px; }
+        .form-fields { gap: 14px; padding: 14px; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>避難所登録</h2>
-<p>新しい避難所情報を登録します。</p>
+<div class="register-intro">
+    <div>
+        <p class="eyebrow">HAZARD REPORT</p>
+        <h1>危険場所を登録</h1>
+    </div>
+    <p class="required-note">名称・被害の種類・位置は必須</p>
+</div>
 
-<!-- 成功・エラーメッセージ表示 -->
 {% if success %}
-  <p>{{ message }}</p>
+<p class="form-notice" role="status">{{ message }}</p>
 {% endif %}
-
 {% if error %}
-  <p>{{ message }}</p>
+<p class="form-notice is-error" role="alert">{{ message }}</p>
 {% endif %}
 
-<form method="POST">
-  <p>
-    <label for="name">避難所名（必須）</label><br>
-    <input type="text" id="name" name="name">
-  </p>
-  <p><button type="submit">登録</button></p>
+<form id="dangerPlaceForm" method="post" enctype="multipart/form-data">
+    <div class="register-grid">
+        <section class="register-panel" aria-labelledby="location-title">
+            <div class="register-panel-heading">
+                <div>
+                    <h2 id="location-title">発生場所</h2>
+                    <p id="locationStatus" aria-live="polite">地図上の位置を選択してください</p>
+                </div>
+            </div>
+            <div id="registrationMap" role="region" aria-label="危険場所の位置を指定する地図"></div>
+            <div class="coordinates">
+                <label for="latitude">緯度
+                    <input type="number" id="latitude" name="latitude" min="-90" max="90" step="any" value="{{ form_data.get('latitude', '') }}" required>
+                </label>
+                <label for="longitude">経度
+                    <input type="number" id="longitude" name="longitude" min="-180" max="180" step="any" value="{{ form_data.get('longitude', '') }}" required>
+                </label>
+            </div>
+        </section>
+
+        <section class="register-panel" aria-labelledby="details-title">
+            <div class="register-panel-heading">
+                <div>
+                    <h2 id="details-title">危険場所の情報</h2>
+                    <p>地図のマーカーとホーム画面に表示されます</p>
+                </div>
+            </div>
+            <div class="form-fields">
+                <div class="form-field">
+                    <label for="name">名称 <span aria-hidden="true">*</span></label>
+                    <input type="text" id="name" name="name" value="{{ form_data.get('name', '') }}" maxlength="100" autocomplete="off" required>
+                </div>
+                <div class="form-field">
+                    <label for="type">被害の種類 <span aria-hidden="true">*</span></label>
+                    <select id="type" name="type" required>
+                        <option value="">選択してください</option>
+                        {% for value, label in danger_types.items() %}
+                        <option value="{{ value }}" {% if form_data.get('type') == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label for="description">状況・説明</label>
+                    <textarea id="description" name="description" maxlength="2000" rows="4">{{ form_data.get('description', '') }}</textarea>
+                </div>
+                <div class="form-field">
+                    <label for="image">現地画像</label>
+                    <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/webp">
+                    <p class="field-hint">PNG・JPEG・WebP、5MB以下</p>
+                    <div class="image-preview" aria-live="polite">
+                        <img id="imagePreview" alt="選択した現地画像" hidden>
+                        <span id="imagePlaceholder" class="image-placeholder">画像を選択するとプレビューが表示されます</span>
+                    </div>
+                </div>
+                <button class="submit-button" type="submit">危険場所を登録</button>
+            </div>
+        </section>
+    </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const map = L.map('registrationMap').setView([35.3390, 139.4903], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        referrerPolicy: 'strict-origin-when-cross-origin'
+    }).addTo(map);
+
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const locationStatus = document.getElementById('locationStatus');
+    let marker = null;
+
+    function updateMarker(latitude, longitude) {
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
+            || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            return;
+        }
+        latitudeInput.value = latitude.toFixed(6);
+        longitudeInput.value = longitude.toFixed(6);
+        locationStatus.textContent = `${latitudeInput.value}, ${longitudeInput.value}`;
+        if (marker) {
+            marker.setLatLng([latitude, longitude]);
+        } else {
+            marker = L.marker([latitude, longitude]).addTo(map);
+        }
+    }
+
+    map.on('click', event => updateMarker(event.latlng.lat, event.latlng.lng));
+    [latitudeInput, longitudeInput].forEach(input => {
+        input.addEventListener('change', () => {
+            updateMarker(Number(latitudeInput.value), Number(longitudeInput.value));
+        });
+    });
+    if (latitudeInput.value && longitudeInput.value) {
+        updateMarker(Number(latitudeInput.value), Number(longitudeInput.value));
+        map.setView([Number(latitudeInput.value), Number(longitudeInput.value)], 15);
+    }
+
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('imagePreview');
+    const imagePlaceholder = document.getElementById('imagePlaceholder');
+    let previewUrl = null;
+    imageInput.addEventListener('change', () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        const file = imageInput.files[0];
+        if (!file) {
+            imagePreview.hidden = true;
+            imagePlaceholder.hidden = false;
+            return;
+        }
+        previewUrl = URL.createObjectURL(file);
+        imagePreview.src = previewUrl;
+        imagePreview.hidden = false;
+        imagePlaceholder.hidden = true;
+    });
+});
+</script>
 {% endblock %}
